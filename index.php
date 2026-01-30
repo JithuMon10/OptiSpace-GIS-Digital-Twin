@@ -19,7 +19,7 @@
             --success: #00ff00;
             --premium: #ffd700;
             --logistics: #d000ff;
-            --bike: #00f2ff;
+            --bike: #00ffff;
             --border: rgba(0, 242, 255, 0.3);
         }
 
@@ -243,7 +243,7 @@
                     style="font-weight: bold; margin-bottom: 10px; color: var(--accent); font-size: 0.6rem; text-transform: uppercase;">
                     Map Legend</div>
                 <div class="l-item"><span class="box" style="background:var(--success)"></span> General Free</div>
-                <div class="l-item"><span class="box" style="background:var(--premium)"></span> Premium Free (SUV)</div>
+                <div class="l-item"><span class="box" style="background:var(--premium)"></span> Large Fitment (SUV)</div>
                 <div class="l-item"><span class="box" style="background:var(--logistics)"></span> Logistics Free</div>
                 <div class="l-item"><span class="box" style="background:var(--bike)"></span> Bike Free</div>
                 <div class="l-item"><span class="box" style="background:var(--danger)"></span> Occupied Slot</div>
@@ -300,9 +300,9 @@
                         color = '#FFA500'; // Orange
                     } else {
                         // Free statuses
-                        if (slot.zone_type === 'premium') color = '#FFD700'; // Gold
+                        if (slot.zone_type === 'suv') color = '#FFD700'; // Gold
                         else if (slot.zone_type === 'logistics') color = '#D000FF'; // Neon Purple
-                        else if (slot.zone_type === 'bike') color = '#00F2FF'; // Cyan
+                        else if (slot.zone_type === 'bike') color = '#00FFFF'; // Cyan
                     }
 
                     if (slotMarkers[slot.slot_id]) {
