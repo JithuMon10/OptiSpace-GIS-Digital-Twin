@@ -258,7 +258,6 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // ESRI Layers
         const worldImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
@@ -289,36 +288,36 @@
                 document.getElementById('co2').innerText = data.stats.co2_saved + ' kg';
 
                 data.slots.forEach(slot => {
-                    let color = '#00ff00'; // Default Green (Free)
+                    let color = '#00FF00'; // Default Green (Free)
 
-                    // Color Mapping Logic (Strict v7)
+                    // Strict Color Matrix (Digital Twin style)
                     if (slot.status === 'occupied') {
-                        color = '#ff0000'; // Red
+                        color = '#FF0000'; // Red
                     } else if (slot.status === 'inefficient') {
-                        color = '#ffa500'; // Orange
+                        color = '#FFA500'; // Orange
                     } else {
                         // Free statuses
-                        if (slot.zone_type === 'premium') color = '#ffd700'; // Gold
-                        else if (slot.zone_type === 'logistics') color = '#ff00ff'; // Purple
+                        if (slot.zone_type === 'premium') color = '#FFD700'; // Gold
+                        else if (slot.zone_type === 'logistics') color = '#D000FF'; // Neon Purple
                     }
 
                     if (slotMarkers[slot.slot_id]) {
                         slotMarkers[slot.slot_id].setStyle({ fillColor: color, color: color });
                     } else {
+                        // Precision 2.2m markers
                         const marker = L.circle([parseFloat(slot.lat), parseFloat(slot.lng)], {
-                            radius: 3,
+                            radius: 2.2,
                             fillColor: color,
-                            fillOpacity: 0.6,
+                            fillOpacity: 0.7,
                             color: color,
-                            weight: 2
+                            weight: 1.5
                         }).addTo(map);
 
                         marker.bindPopup(`
-                            <div style="font-family:'Orbitron'; font-size:0.8rem; color:var(--accent); text-align:center;">
-                                <b>${slot.slot_name}</b><br>
-                                <div style="border-top:1px solid #333; margin: 5px 0; padding-top:5px;">
-                                    ${slot.zone_type.toUpperCase()} | <span style="color:${color}">${slot.status.toUpperCase()}</span>
-                                </div>
+                            <div style="font-family:'Orbitron'; font-size:0.8rem; line-height:1.4;">
+                                <b>Slot: ${slot.slot_id}</b><br>
+                                Zone: ${slot.zone_type.charAt(0).toUpperCase() + slot.zone_type.slice(1)}<br>
+                                Status: ${slot.status.charAt(0).toUpperCase() + slot.status.slice(1)}
                             </div>
                         `);
                         slotMarkers[slot.slot_id] = marker;
