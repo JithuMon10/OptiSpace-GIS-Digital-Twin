@@ -1,0 +1,12 @@
+# Ignore database configuration (contains credentials)
+# db_connect.php
+
+# Ignore logs
+*.log
+
+# Windows thumbnails
+Thumbs.db
+
+# IDE settings
+.vscode/
+.idea/
