@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OptiSpace | SOC Command Dashboard</title>
+    <title>OptiSpace | SOC Command Dashboard v6</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
@@ -14,9 +14,11 @@
             --bg: #05080a;
             --panel: rgba(10, 20, 30, 0.9);
             --accent: #00f2ff;
-            --danger: #ff3e3e;
-            --warning: #ffbe00;
-            --success: #00ff88;
+            --danger: #ff0000;
+            --warning: #ffa500;
+            --success: #00ff00;
+            --premium: #ffd700;
+            --logistics: #ff00ff;
             --border: rgba(0, 242, 255, 0.3);
         }
 
@@ -115,6 +117,7 @@
             padding: 10px 20px;
             border: 1px solid var(--border);
             letter-spacing: 2px;
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
         }
 
         .telemetry {
@@ -132,7 +135,7 @@
             border: 1px solid var(--border);
             padding: 12px;
             border-radius: 4px;
-            width: 180px;
+            width: 200px;
             backdrop-filter: blur(5px);
         }
 
@@ -165,7 +168,7 @@
         .ticker-wrap {
             white-space: nowrap;
             padding-left: 100%;
-            animation: ticker 30s linear infinite;
+            animation: ticker 40s linear infinite;
         }
 
         @keyframes ticker {
@@ -180,38 +183,40 @@
 
         .legend {
             position: absolute;
-            bottom: 20px;
+            bottom: 30px;
             right: 20px;
             z-index: 1000;
             background: var(--panel);
-            padding: 10px;
+            padding: 15px;
             border: 1px solid var(--border);
-            font-size: 0.7rem;
+            font-size: 0.75rem;
+            border-radius: 4px;
         }
 
         .l-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 4px;
+            gap: 10px;
+            margin-bottom: 6px;
         }
 
-        .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
+        .box {
+            width: 12px;
+            height: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
     </style>
 </head>
 
 <body>
-    <div class="branding">OPTISPACE // SOC</div>
+    <div class="branding">OPTISPACE // SOC DASHBOARD</div>
 
     <div class="main-container">
         <div class="left-panel">
-            <div class="feed-header">LIVE FEED | CAM-01</div>
+            <div class="feed-header">LIVE FEED | CAM-01 | ENTRANCE</div>
             <div class="video-box">
                 <div class="scan-line"></div>
+                <!-- Note: Ensure parking_loop.mp4 exists in root -->
                 <video autoplay muted loop playsinline src="parking_loop.mp4">
                     Your browser does not support the video tag.
                 </video>
@@ -233,16 +238,23 @@
             </div>
 
             <div class="legend">
-                <div class="l-item"><span class="dot" style="background:var(--success)"></span> Secure (Free)</div>
-                <div class="l-item"><span class="dot" style="background:var(--danger)"></span> Active (Occupied)</div>
+                <div
+                    style="font-weight: bold; margin-bottom: 10px; color: var(--accent); font-size: 0.6rem; text-transform: uppercase;">
+                    Map Legend</div>
+                <div class="l-item"><span class="box" style="background:var(--success)"></span> General Free</div>
+                <div class="l-item"><span class="box" style="background:var(--premium)"></span> Premium Free (SUV)</div>
+                <div class="l-item"><span class="box" style="background:var(--logistics)"></span> Logistics Free</div>
+                <div class="l-item"><span class="box" style="background:var(--danger)"></span> Occupied Slot</div>
+                <div class="l-item"><span class="box" style="background:var(--warning)"></span> Inefficient (Mismatched)
+                </div>
             </div>
         </div>
     </div>
 
     <div class="ticker">
         <div class="ticker-wrap">
-            CONNECTED TO ESRI ARCGIS SERVICES... SYNCING TRV GROUND LOGISTICS DATA... STATUS: OPTIMAL... ENFORCING
-            GEOFENCE PROTOCOLS...
+            ARC-SYNC: SYSTEM STATUS NOMINAL... DATA COLLECTION V5.0 PROTOCOLS ACTIVE... MONITORING ${8.488} N, ${76.923}
+            E... ALL ZONES ENFORCED...
         </div>
     </div>
 
@@ -260,44 +272,67 @@
             layers: [worldImagery, worldLabels]
         });
 
-        let polygons = {};
+        let slotMarkers = {};
 
         async function updateDashboard() {
             try {
                 const response = await fetch('logic.php?action=fetch_status');
                 const data = await response.json();
 
-                if (!data || !data.stats) {
+                if (!data || data.status !== 'success') {
                     console.warn("Invalid telemetry data received");
                     return;
                 }
 
-                document.getElementById('revenue').innerText = '₹' + data.stats.revenue.toFixed(2);
-                document.getElementById('co2').innerText = data.stats.co2_saved.toFixed(2) + ' kg';
+                // Update Stats
+                document.getElementById('revenue').innerText = '₹' + data.stats.revenue;
+                document.getElementById('co2').innerText = data.stats.co2_saved + ' kg';
 
                 data.slots.forEach(slot => {
-                    const color = slot.status === 'free' ? '#00ff88' : '#ff3e3e';
+                    let color = '#00ff00'; // Default Green (General Free)
 
-                    if (polygons[slot.id]) {
-                        polygons[slot.id].setStyle({ fillColor: color, color: color });
+                    // Color Mapping Logic
+                    if (slot.status === 'occupied') {
+                        color = '#ff0000'; // Red
+                    } else if (slot.status === 'inefficient') {
+                        color = '#ffa500'; // Orange
                     } else {
-                        // Using precise circle markers for TRV layout
-                        const marker = L.circle([slot.lat, slot.lng], {
-                            radius: 1,
+                        // Free statuses
+                        if (slot.zone_type === 'premium') color = '#ffd700'; // Gold
+                        else if (slot.zone_type === 'logistics') color = '#ff00ff'; // Purple
+                    }
+
+                    // Professional Rectangle Geometry (Approx 2.5m x 5m slots)
+                    const latOffset = 0.00002;
+                    const lngOffset = 0.00004;
+                    const bounds = [
+                        [parseFloat(slot.lat) - latOffset, parseFloat(slot.lng) - lngOffset],
+                        [parseFloat(slot.lat) + latOffset, parseFloat(slot.lng) + lngOffset]
+                    ];
+
+                    if (slotMarkers[slot.slot_id]) {
+                        slotMarkers[slot.slot_id].setStyle({ fillColor: color, color: color });
+                        slotMarkers[slot.slot_id].setLatLngs(bounds);
+                    } else {
+                        const rect = L.rectangle(bounds, {
                             fillColor: color,
                             fillOpacity: 0.6,
                             color: color,
-                            weight: 2
+                            weight: 1.5,
+                            dashArray: slot.status === 'free' ? '0' : '3'
                         }).addTo(map);
 
-                        marker.bindPopup(`
-                            <div style="font-family:'Orbitron'; font-size:0.8rem; color:var(--accent);">
-                                <b>${slot.slot_id}</b><br>
+                        rect.bindPopup(`
+                            <div style="font-family:'Orbitron'; font-size:0.8rem; color:var(--accent); min-width: 120px;">
+                                <div style="border-bottom: 1px solid #334155; padding-bottom: 5px; margin-bottom: 5px;">
+                                    <b>${slot.slot_id}</b>
+                                </div>
+                                <span style="color:#888;">Name:</span> ${slot.slot_name}<br>
                                 <span style="color:#888;">Zone:</span> ${slot.zone_type.toUpperCase()}<br>
-                                <span style="color:#888;">Status:</span> ${slot.status.toUpperCase()}
+                                <span style="color:#888;">Status:</span> <span style="color:${color}">${slot.status.toUpperCase()}</span>
                             </div>
                         `);
-                        polygons[slot.id] = marker;
+                        slotMarkers[slot.slot_id] = rect;
                     }
                 });
 

@@ -1,87 +1,105 @@
 <?php
+// 1. SILENCE ERRORS (Crucial for Simulator)
 error_reporting(0);
 ini_set('display_errors', 0);
-require_once 'db_connect.php';
 header('Content-Type: application/json');
 
-try {
-    $action = $_GET['action'] ?? '';
+require 'db_connect.php';
 
-    if ($action === 'fetch_status' || $action === 'get_status') {
-        $slots = $pdo->query("SELECT * FROM parking_slots")->fetchAll();
-        $stats = $pdo->query("SELECT * FROM soc_stats WHERE id = 1")->fetch();
+$action = $_GET['action'] ?? '';
+
+try {
+    // ---------------------------------------------------------
+    // ACTION: FETCH STATUS (For Dashboard)
+    // ---------------------------------------------------------
+    if ($action === 'fetch_status') {
+        // We select EVERYTHING. Since your DB has 'slot_id', this grabs it automatically.
+        $stmt = $pdo->query("SELECT * FROM parking_slots");
+        $slots = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Stats
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM parking_slots WHERE status='occupied'");
+        $occupied = $stmt->fetch()['total'];
+
+        $revenue = $occupied * 50;
+        $co2 = $occupied * 0.45;
 
         echo json_encode([
+            'status' => 'success',
             'slots' => $slots,
             'stats' => [
-                'total_entries' => (int) $stats['total_entries'],
-                'revenue' => (float) $stats['revenue'],
-                'co2_saved' => (float) $stats['co2_saved']
+                'total_entries' => (int) $occupied,
+                'revenue' => number_format($revenue, 2),
+                'co2_saved' => number_format($co2, 2)
             ]
         ]);
         exit;
     }
 
+    // ---------------------------------------------------------
+    // ACTION: ENTRY (Simulator) - THIS WAS THE BROKEN PART
+    // ---------------------------------------------------------
     if ($action === 'entry') {
-        $vehicle_type = strtolower($_POST['vehicle_type'] ?? '');
-        $fee = 0;
-        $co2 = 0;
-        $status = 'occupied';
+        $type = $_POST['type'] ?? 'car'; // car, suv, truck
 
-        // Zoning and Pricing
-        if ($vehicle_type === 'truck' || $vehicle_type === 'bus') {
-            $stmt = $pdo->prepare("SELECT * FROM parking_slots WHERE status = 'free' AND zone_type = 'logistics' LIMIT 1");
-            $fee = 250;
-            $co2 = 6.0;
-        } elseif ($vehicle_type === 'suv') {
-            $stmt = $pdo->prepare("SELECT * FROM parking_slots WHERE status = 'free' AND zone_type = 'premium' LIMIT 1");
-            $fee = 100;
-            $co2 = 3.0;
-        } else {
-            $stmt = $pdo->prepare("SELECT * FROM parking_slots WHERE status = 'free' AND zone_type = 'general' LIMIT 1");
-            $fee = 50;
-            $co2 = 1.5;
-        }
+        $target_zone = 'general';
+        if ($type === 'suv')
+            $target_zone = 'premium';
+        if ($type === 'truck')
+            $target_zone = 'logistics';
 
-        $stmt->execute();
+        // FIX 1: Look for 'slot_id', NOT 'id'
+        $sql = "SELECT slot_id FROM parking_slots WHERE status='free' AND zone_type='$target_zone' LIMIT 1";
+        $stmt = $pdo->query($sql);
         $slot = $stmt->fetch();
 
-        if (!$slot) {
-            echo json_encode(['success' => false, 'message' => 'Requested zone full.']);
-            exit;
+        // Fallback logic
+        if (!$slot && $type !== 'truck') {
+            $sql = "SELECT slot_id FROM parking_slots WHERE status='free' AND zone_type='general' LIMIT 1";
+            $stmt = $pdo->query($sql);
+            $slot = $stmt->fetch();
         }
 
-        // Apply
-        $pdo->prepare("UPDATE parking_slots SET status = ?, current_vehicle = ? WHERE id = ?")
-            ->execute([$status, $vehicle_type, $slot['id']]);
-
-        $pdo->prepare("UPDATE soc_stats SET total_entries = total_entries + 1, revenue = revenue + ?, co2_saved = co2_saved + ? WHERE id = 1")
-            ->execute([$fee, $co2]);
-
-        echo json_encode(['success' => true, 'message' => "Parked in {$slot['slot_id']}"]);
-        exit;
-    }
-
-    if ($action === 'exit') {
-        $slot_id = $_POST['slot_id'] ?? null;
-        if ($slot_id) {
-            $pdo->prepare("UPDATE parking_slots SET status = 'free', current_vehicle = NULL WHERE slot_id = ?")
-                ->execute([$slot_id]);
-            echo json_encode(['success' => true, 'message' => "Slot {$slot_id} freed."]);
+        if ($slot) {
+            // FIX 2: Update using 'slot_id'
+            $update = $pdo->prepare("UPDATE parking_slots SET status='occupied' WHERE slot_id = ?");
+            $update->execute([$slot['slot_id']]);
+            echo json_encode(['status' => 'success', 'message' => "Parked in Slot " . $slot['slot_id']]);
         } else {
-            echo json_encode(['success' => false, 'message' => "Slot ID required."]);
+            echo json_encode(['status' => 'error', 'message' => 'NO PARKING AVAILABLE']);
         }
         exit;
     }
 
+    // ---------------------------------------------------------
+    // ACTION: EXIT (Simulator)
+    // ---------------------------------------------------------
+    if ($action === 'exit') {
+        // FIX 3: Find an occupied slot using 'slot_id'
+        $sql = "SELECT slot_id FROM parking_slots WHERE status='occupied' LIMIT 1";
+        $stmt = $pdo->query($sql);
+        $slot = $stmt->fetch();
+
+        if ($slot) {
+            $update = $pdo->prepare("UPDATE parking_slots SET status='free' WHERE slot_id = ?");
+            $update->execute([$slot['slot_id']]);
+            echo json_encode(['status' => 'success', 'message' => "Slot " . $slot['slot_id'] . " Freed"]);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'LOT IS ALREADY EMPTY']);
+        }
+        exit;
+    }
+
+    // ---------------------------------------------------------
+    // ACTION: RESET
+    // ---------------------------------------------------------
     if ($action === 'reset') {
-        $pdo->query("UPDATE parking_slots SET status = 'free', current_vehicle = NULL");
-        $pdo->query("UPDATE soc_stats SET total_entries = 0, revenue = 0, co2_saved = 0 WHERE id = 1");
-        echo json_encode(['success' => true]);
+        $pdo->query("UPDATE parking_slots SET status='free'");
+        echo json_encode(['status' => 'success', 'message' => 'SIMULATION RESET']);
         exit;
     }
 
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+    echo json_encode(['status' => 'error', 'message' => 'Server error: ' . $e->getMessage()]);
 }
 ?>
