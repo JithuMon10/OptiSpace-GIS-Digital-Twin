@@ -289,9 +289,9 @@
                 document.getElementById('co2').innerText = data.stats.co2_saved + ' kg';
 
                 data.slots.forEach(slot => {
-                    let color = '#00ff00'; // Default Green (General Free)
+                    let color = '#00ff00'; // Default Green (Free)
 
-                    // Color Mapping Logic
+                    // Color Mapping Logic (Strict v7)
                     if (slot.status === 'occupied') {
                         color = '#ff0000'; // Red
                     } else if (slot.status === 'inefficient') {
@@ -302,37 +302,26 @@
                         else if (slot.zone_type === 'logistics') color = '#ff00ff'; // Purple
                     }
 
-                    // Professional Rectangle Geometry (Approx 2.5m x 5m slots)
-                    const latOffset = 0.00002;
-                    const lngOffset = 0.00004;
-                    const bounds = [
-                        [parseFloat(slot.lat) - latOffset, parseFloat(slot.lng) - lngOffset],
-                        [parseFloat(slot.lat) + latOffset, parseFloat(slot.lng) + lngOffset]
-                    ];
-
                     if (slotMarkers[slot.slot_id]) {
                         slotMarkers[slot.slot_id].setStyle({ fillColor: color, color: color });
-                        slotMarkers[slot.slot_id].setLatLngs(bounds);
                     } else {
-                        const rect = L.rectangle(bounds, {
+                        const marker = L.circle([parseFloat(slot.lat), parseFloat(slot.lng)], {
+                            radius: 3,
                             fillColor: color,
                             fillOpacity: 0.6,
                             color: color,
-                            weight: 1.5,
-                            dashArray: slot.status === 'free' ? '0' : '3'
+                            weight: 2
                         }).addTo(map);
 
-                        rect.bindPopup(`
-                            <div style="font-family:'Orbitron'; font-size:0.8rem; color:var(--accent); min-width: 120px;">
-                                <div style="border-bottom: 1px solid #334155; padding-bottom: 5px; margin-bottom: 5px;">
-                                    <b>${slot.slot_id}</b>
+                        marker.bindPopup(`
+                            <div style="font-family:'Orbitron'; font-size:0.8rem; color:var(--accent); text-align:center;">
+                                <b>${slot.slot_name}</b><br>
+                                <div style="border-top:1px solid #333; margin: 5px 0; padding-top:5px;">
+                                    ${slot.zone_type.toUpperCase()} | <span style="color:${color}">${slot.status.toUpperCase()}</span>
                                 </div>
-                                <span style="color:#888;">Name:</span> ${slot.slot_name}<br>
-                                <span style="color:#888;">Zone:</span> ${slot.zone_type.toUpperCase()}<br>
-                                <span style="color:#888;">Status:</span> <span style="color:${color}">${slot.status.toUpperCase()}</span>
                             </div>
                         `);
-                        slotMarkers[slot.slot_id] = rect;
+                        slotMarkers[slot.slot_id] = marker;
                     }
                 });
 

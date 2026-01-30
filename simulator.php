@@ -99,6 +99,8 @@
             <button onclick="entry('suv')">SUV Arrival (Premium)</button>
             <button onclick="entry('car')">Car Arrival (General)</button>
             <button onclick="entry('truck')">Truck Arrival (Logistics)</button>
+            <button onclick="entry('bike')" style="border-color:#eab308; color:#eab308;">Bike Arrival
+                (2-Wheeler)</button>
         </div>
         <button class="reset" onclick="resetSim()">RESET ALL SYSTEMS</button>
         <div id="log">> STANDBY...</div>

@@ -13,22 +13,21 @@ try {
     // ACTION: FETCH STATUS (For Dashboard)
     // ---------------------------------------------------------
     if ($action === 'fetch_status') {
-        // We select EVERYTHING. Since your DB has 'slot_id', this grabs it automatically.
         $stmt = $pdo->query("SELECT * FROM parking_slots");
         $slots = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Stats
-        $stmt = $pdo->query("SELECT COUNT(*) as total FROM parking_slots WHERE status='occupied'");
-        $occupied = $stmt->fetch()['total'];
+        // Stats Calculation
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM parking_slots WHERE status IN ('occupied', 'inefficient')");
+        $occupiedCount = $stmt->fetch()['total'];
 
-        $revenue = $occupied * 50;
-        $co2 = $occupied * 0.45;
+        $revenue = $occupiedCount * 50;
+        $co2 = $occupiedCount * 0.45;
 
         echo json_encode([
             'status' => 'success',
             'slots' => $slots,
             'stats' => [
-                'total_entries' => (int) $occupied,
+                'total_entries' => (int) $occupiedCount,
                 'revenue' => number_format($revenue, 2),
                 'co2_saved' => number_format($co2, 2)
             ]
@@ -37,33 +36,55 @@ try {
     }
 
     // ---------------------------------------------------------
-    // ACTION: ENTRY (Simulator) - THIS WAS THE BROKEN PART
+    // ACTION: ENTRY (Simulator)
     // ---------------------------------------------------------
     if ($action === 'entry') {
-        $type = $_POST['type'] ?? 'car'; // car, suv, truck
-
+        $type = $_POST['vehicle_type'] ?? 'car'; // car, suv, truck, bike
+        $status_to_set = 'occupied';
         $target_zone = 'general';
+
         if ($type === 'suv')
             $target_zone = 'premium';
-        if ($type === 'truck')
-            $target_zone = 'logistics';
 
-        // FIX 1: Look for 'slot_id', NOT 'id'
-        $sql = "SELECT slot_id FROM parking_slots WHERE status='free' AND zone_type='$target_zone' LIMIT 1";
-        $stmt = $pdo->query($sql);
-        $slot = $stmt->fetch();
-
-        // Fallback logic
-        if (!$slot && $type !== 'truck') {
-            $sql = "SELECT slot_id FROM parking_slots WHERE status='free' AND zone_type='general' LIMIT 1";
+        // Strict Truck Logic
+        if ($type === 'truck') {
+            $sql = "SELECT slot_id FROM parking_slots WHERE status='free' AND zone_type='logistics' LIMIT 1";
             $stmt = $pdo->query($sql);
             $slot = $stmt->fetch();
+
+            if (!$slot) {
+                echo json_encode(['status' => 'error', 'message' => 'No Logistics Bay Available']);
+                exit;
+            }
+        }
+        // Bike Logic
+        else if ($type === 'bike') {
+            // Priority: General -> Premium (Inefficient)
+            $sql = "SELECT slot_id, zone_type FROM parking_slots WHERE status='free' AND zone_type='general' LIMIT 1";
+            $slot = $pdo->query($sql)->fetch();
+
+            if (!$slot) {
+                $sql = "SELECT slot_id, zone_type FROM parking_slots WHERE status='free' AND zone_type='premium' LIMIT 1";
+                $slot = $pdo->query($sql)->fetch();
+                if ($slot)
+                    $status_to_set = 'inefficient';
+            }
+        }
+        // Standards (Car/SUV)
+        else {
+            $sql = "SELECT slot_id FROM parking_slots WHERE status='free' AND zone_type='$target_zone' LIMIT 1";
+            $slot = $pdo->query($sql)->fetch();
+
+            // Fallback for cars
+            if (!$slot && $type === 'car') {
+                $sql = "SELECT slot_id FROM parking_slots WHERE status='free' AND zone_type='premium' LIMIT 1";
+                $slot = $pdo->query($sql)->fetch();
+            }
         }
 
         if ($slot) {
-            // FIX 2: Update using 'slot_id'
-            $update = $pdo->prepare("UPDATE parking_slots SET status='occupied' WHERE slot_id = ?");
-            $update->execute([$slot['slot_id']]);
+            $update = $pdo->prepare("UPDATE parking_slots SET status=? WHERE slot_id = ?");
+            $update->execute([$status_to_set, $slot['slot_id']]);
             echo json_encode(['status' => 'success', 'message' => "Parked in Slot " . $slot['slot_id']]);
         } else {
             echo json_encode(['status' => 'error', 'message' => 'NO PARKING AVAILABLE']);
@@ -72,11 +93,10 @@ try {
     }
 
     // ---------------------------------------------------------
-    // ACTION: EXIT (Simulator)
+    // ACTION: EXIT
     // ---------------------------------------------------------
     if ($action === 'exit') {
-        // FIX 3: Find an occupied slot using 'slot_id'
-        $sql = "SELECT slot_id FROM parking_slots WHERE status='occupied' LIMIT 1";
+        $sql = "SELECT slot_id FROM parking_slots WHERE status IN ('occupied', 'inefficient') LIMIT 1";
         $stmt = $pdo->query($sql);
         $slot = $stmt->fetch();
 
