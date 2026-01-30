@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OptiSpace | COMMAND CENTER v9.1</title>
+    <title>OptiSpace | COMMAND CENTER v10.0</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono&display=swap"
         rel="stylesheet">
@@ -13,8 +13,8 @@
         :root {
             --accent: #00f2ff;
             --bg: #050709;
-            --panel: rgba(13, 17, 23, 0.85);
-            --border: rgba(0, 242, 255, 0.3);
+            --panel: rgba(13, 17, 23, 0.9);
+            --border: rgba(0, 242, 255, 0.4);
         }
 
         body,
@@ -35,6 +35,7 @@
             width: 100vw;
             height: 100vh;
             z-index: 1;
+            pointer-events: none;
         }
 
         .hud {
@@ -46,14 +47,14 @@
         .glass {
             pointer-events: auto;
             background: var(--panel);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(15px);
             border: 1px solid var(--border);
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+            border-radius: 4px;
         }
 
-        /* Top HUD */
-        .header-hud {
+        /* Top Bar HUD */
+        #top-bar {
             top: 0;
             left: 0;
             width: 100%;
@@ -63,34 +64,103 @@
             justify-content: space-between;
             padding: 0 30px;
             border-radius: 0;
+            border: none;
             border-bottom: 2px solid var(--border);
             box-sizing: border-box;
         }
 
         .brand {
             font-family: 'Orbitron', sans-serif;
-            letter-spacing: 2px;
+            font-weight: 700;
+            letter-spacing: 3px;
             color: var(--accent);
+            font-size: 1.1rem;
         }
 
-        .stats-row {
+        .top-stats {
             display: flex;
             gap: 40px;
+        }
+
+        .stat-item {
+            text-align: right;
         }
 
         .stat-val {
             font-family: 'Orbitron';
             color: #fff;
-            font-size: 0.9rem;
+            display: block;
+            font-size: 1rem;
         }
 
         .stat-label {
             font-size: 0.6rem;
             color: #888;
             text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
-        /* Cinematic Surveillance HUD (v9.2) */
+        /* Right Panel HUD */
+        #right-panel {
+            right: 25px;
+            top: 85px;
+            bottom: 25px;
+            width: 300px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-heading {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            color: var(--accent);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+        }
+
+        .zone-stats {
+            margin-bottom: 30px;
+        }
+
+        .zone-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.75rem;
+        }
+
+        #event-log {
+            flex: 1;
+            overflow-y: auto;
+            font-size: 0.65rem;
+            color: #aaa;
+            border-top: 1px solid var(--border);
+            padding-top: 15px;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            border-left: 2px solid var(--accent);
+            padding-left: 10px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* CCTV HUD (Bottom Left) - PRESERVED FROM v9.2 */
         #cctv-panel {
             bottom: 25px;
             left: 25px;
@@ -120,8 +190,6 @@
         .cam-rotate {
             transform: rotate(180deg);
         }
-
-        /* UPSIDE DOWN FOR TOP-DOWN VIEW */
 
         .cam-tag {
             position: absolute;
@@ -159,7 +227,6 @@
             }
         }
 
-        /* Terminal Style Overlays */
         .terminal-overlay {
             position: absolute;
             bottom: 0;
@@ -179,55 +246,7 @@
             text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
         }
 
-        /* Scan Line (Entry Only) */
-        .scan-line {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: var(--accent);
-            box-shadow: 0 0 15px var(--accent);
-            z-index: 8;
-            animation: scan 4s linear infinite;
-        }
-
-        @keyframes scan {
-            0% {
-                top: 0;
-            }
-
-            100% {
-                top: 100%;
-            }
-        }
-
-        /* Sidebar (Right) */
-        .sidebar {
-            right: 25px;
-            top: 85px;
-            bottom: 25px;
-            width: 280px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .log-box {
-            flex: 1;
-            overflow-y: auto;
-            font-size: 0.65rem;
-            color: #ccc;
-            margin-top: 15px;
-        }
-
-        .log-entry {
-            margin-bottom: 8px;
-            border-left: 2px solid var(--accent);
-            padding-left: 8px;
-        }
-
-        /* Animation class for the laser */
+        /* Map Animations */
         .laser-beam {
             stroke-dasharray: 8;
             animation: dash 0.8s linear infinite;
@@ -244,22 +263,36 @@
 <body>
     <div id="map"></div>
 
-    <!-- HEADER -->
-    <div class="hud glass header-hud">
-        <div class="brand">OPTISPACE // COMMAND CENTER T2</div>
-        <div class="stats-row">
-            <div class="stat-item"><span class="stat-label">REVENUE</span><span class="stat-val" id="rev-val">₹
-                    0.00</span></div>
-            <div class="stat-item"><span class="stat-label">OCCUPANCY</span><span class="stat-val" id="occ-val">0 /
-                    0</span></div>
-            <div class="stat-item"><span class="stat-label">SYSTEM</span><span class="stat-val"
-                    style="color:#00ff00">ONLINE</span></div>
+    <!-- TOP BAR -->
+    <div class="hud glass" id="top-bar">
+        <div class="brand">OPTISPACE // COMMAND CENTER</div>
+        <div class="top-stats">
+            <div class="stat-item"><span class="stat-label">DAILY REVENUE</span><span class="stat-val"
+                    id="hud-revenue">₹ 0.00</span></div>
+            <div class="stat-item"><span class="stat-label">SITE OCCUPANCY</span><span class="stat-val"
+                    id="hud-occupancy">0 / 0</span></div>
+            <div class="stat-item"><span class="stat-label">SYSTEM STATUS</span><span class="stat-val"
+                    style="color: #00ff00; text-shadow: 0 0 5px #00ff00;">● ONLINE</span></div>
         </div>
     </div>
 
-    <!-- CCTV PANEL (Bottom Left) -->
+    <!-- RIGHT PANEL -->
+    <div class="hud glass" id="right-panel">
+        <div class="panel-heading">ZONE TELEMETRY</div>
+        <div class="zone-stats">
+            <div class="zone-row"><span>🚗 GENERAL</span><span id="z-general">0/0</span></div>
+            <div class="zone-row" style="color: #FFD700"><span>🚙 SUV (LARGE)</span><span id="z-suv">0/0</span></div>
+            <div class="zone-row" style="color: #00FFFF"><span>🏍️ BIKES (COMPACT)</span><span id="z-bike">0/0</span>
+            </div>
+            <div class="zone-row" style="color: #D000FF"><span>🚚 LOGISTICS</span><span id="z-logistics">0/0</span>
+            </div>
+        </div>
+        <div class="panel-heading" style="margin-bottom: 10px;">LIVE EVENT LOG</div>
+        <div id="event-log"></div>
+    </div>
+
+    <!-- CCTV HUD (PRESERVED) -->
     <div class="hud" id="cctv-panel">
-        <!-- TOP: CAM-02 EXIT (ROTATED) -->
         <div class="cam-box">
             <div class="cam-tag">
                 <div class="rec-dot"></div> CAM-02 [EXIT_LANE]
@@ -267,9 +300,8 @@
             <div class="terminal-overlay">
                 <div class="terminal-text" id="exit-text">> ANALYZING_EXIT...</div>
             </div>
-            <video class="cam-rotate" src="cctv/VID2.mp4" autoplay muted loop id="vid-exit"></video>
+            <video class="cam-rotate" id="vid-exit" src="cctv/VID2.mp4" autoplay muted loop></video>
         </div>
-        <!-- BOTTOM: CAM-01 ENTRY -->
         <div class="cam-box">
             <div class="cam-tag">
                 <div class="rec-dot"></div> CAM-01 [ENTRY_GATE]
@@ -277,39 +309,30 @@
             <div class="terminal-overlay">
                 <div class="terminal-text" id="entry-text">> SCANNING_TARGET...</div>
             </div>
-            <video src="cctv/VID1.mp4" autoplay muted loop id="vid-entry"></video>
+            <video id="vid-entry" src="cctv/VID1.mp4" autoplay muted loop></video>
         </div>
-    </div>
-
-    <!-- SIDEBAR -->
-    <div class="hud glass sidebar">
-        <div
-            style="font-family:'Orbitron'; font-size: 0.75rem; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 10px;">
-            ZONE ANALYSIS</div>
-        <div style="padding-top:15px; font-size: 0.7rem;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>🚗 GENERAL</span><span
-                    id="c-general">0 / 0</span></div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:#FFD700"><span>🚙
-                    SUV</span><span id="c-suv">0 / 0</span></div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:#00FFFF"><span>🏍️
-                    BIKE</span><span id="c-bike">0 / 0</span></div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:#D000FF"><span>🚚
-                    LOGISTICS</span><span id="c-logistics">0 / 0</span></div>
-        </div>
-        <div style="margin-top:20px; font-family:'Orbitron'; font-size: 0.65rem; color: var(--accent);">EVENT LOG</div>
-        <div class="log-box" id="log"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const map = L.map('map', { center: [8.488533, 76.921948], zoom: 19, zoomControl: false, attributionControl: false });
+        // Init Map - Locked and Focused
+        const map = L.map('map', {
+            center: [8.488533, 76.921948],
+            zoom: 20,
+            zoomControl: false,
+            attributionControl: false,
+            scrollWheelZoom: false,
+            doubleClickZoom: false,
+            touchZoom: false,
+            dragging: false
+        });
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}').addTo(map);
 
         let slotMarkers = {};
         let currentSlots = [];
-        const GATE = [8.488533, 76.921948];
+        const ENTRANCE = [8.488533, 76.921948];
 
-        async function init() {
+        async function initDashboard() {
             const res = await fetch('logic.php?action=fetch_status');
             const data = await res.json();
             currentSlots = data.slots;
@@ -318,126 +341,135 @@
                 let color = (s.status === 'free') ?
                     (s.zone_type === 'suv' ? '#FFD700' : s.zone_type === 'logistics' ? '#D000FF' : s.zone_type === 'bike' ? '#00FFFF' : '#00ff00') : '#FF0000';
 
-                const m = L.circle([s.lat, s.lng], { radius: 2.2, fillColor: color, fillOpacity: 0.8, color: color, weight: 1.5 }).addTo(map);
-                slotMarkers[s.slot_id] = { m: m, type: s.zone_type, status: s.status };
+                const m = L.circle([s.lat, s.lng], {
+                    radius: 2.3,
+                    fillColor: color,
+                    fillOpacity: 0.9,
+                    color: color,
+                    weight: 1
+                }).addTo(map);
+
+                slotMarkers[s.slot_id] = { marker: m, zone: s.zone_type };
             });
-            updateStats(data);
-            startSimulatedLoops();
+
+            updateHUD(data);
+            startPresentationLoops();
         }
 
-        function updateStats(data) {
-            document.getElementById('rev-val').innerText = '₹ ' + data.stats.revenue;
-            document.getElementById('occ-val').innerText = data.stats.total_entries + ' / ' + data.slots.length;
+        function updateHUD(data) {
+            document.getElementById('hud-revenue').innerText = '₹ ' + data.stats.revenue;
+            document.getElementById('hud-occupancy').innerText = data.stats.total_entries + ' / ' + data.slots.length;
 
             let zones = { general: { o: 0, t: 0 }, suv: { o: 0, t: 0 }, bike: { o: 0, t: 0 }, logistics: { o: 0, t: 0 } };
             data.slots.forEach(s => {
                 zones[s.zone_type].t++;
                 if (s.status !== 'free') zones[s.zone_type].o++;
             });
-            for (let z in zones) document.getElementById('c-' + z).innerText = zones[z].o + ' / ' + zones[z].t;
+            for (let z in zones) {
+                const el = document.getElementById('z-' + z);
+                if (el) el.innerText = zones[z].o + ' / ' + zones[z].t;
+            }
         }
 
-        function addLog(msg) {
-            const log = document.getElementById('log');
+        function pushLog(msg) {
+            const logBox = document.getElementById('event-log');
             const entry = document.createElement('div');
             entry.className = 'log-entry';
-            entry.innerHTML = `<span style="color:var(--accent)">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
-            log.prepend(entry);
-            if (log.children.length > 15) log.lastChild.remove();
+            const time = new Date().toLocaleTimeString([], { hour12: false });
+            entry.innerHTML = `<span style="color:var(--accent)">[${time}]</span> ${msg}`;
+            logBox.prepend(entry);
+            if (logBox.children.length > 20) logBox.lastChild.remove();
         }
 
-        // --- AUTOMATIC SIMULATION ENGINE (v9.2) ---
-        function startSimulatedLoops() {
+        // --- AUTONOMOUS PRESENTATION LOOPS ---
+        function startPresentationLoops() {
+            // Force 0.5x Speed on CCTV
+            const vEntry = document.getElementById('vid-entry');
+            const vExit = document.getElementById('vid-exit');
+            if (vEntry) vEntry.playbackRate = 0.5;
+            if (vExit) vExit.playbackRate = 0.5;
+
             const entryMsgs = ["> SCANNING...", "> FITMENT: OK", "> ALLOCATING..."];
             const exitMsgs = ["> VEHICLE LEAVING...", "> FEE: CALCULATING", "> PAYMENT: DONE"];
 
-            // Force 0.5x Speed
-            const v1 = document.getElementById('vid-entry');
-            const v2 = document.getElementById('vid-exit');
-            if (v1) v1.playbackRate = 0.5;
-            if (v2) v2.playbackRate = 0.5;
-
-            // ENTRY CYCLE (3s)
+            // Entry Loop (Every 3s)
             setInterval(async () => {
                 const term = document.getElementById('entry-text');
-                if (!term) return;
                 term.innerText = entryMsgs[0];
                 await new Promise(r => setTimeout(r, 1000));
                 term.innerText = entryMsgs[1];
                 await new Promise(r => setTimeout(r, 1000));
                 term.innerText = entryMsgs[2];
 
-                const freeSlots = currentSlots.filter(s => s.status === 'free');
-                if (freeSlots.length > 0) {
-                    const target = freeSlots[Math.floor(Math.random() * freeSlots.length)];
-                    fireLaser(target);
+                const freeSpots = currentSlots.filter(s => s.status === 'free');
+                if (freeSpots.length > 0) {
+                    const target = freeSpots[Math.floor(Math.random() * freeSpots.length)];
+                    animateAllocation(target);
                 }
             }, 3000);
 
-            // EXIT CYCLE (5s)
+            // Exit Loop (Every 5s)
             setInterval(async () => {
                 const term = document.getElementById('exit-text');
-                if (!term) return;
-                const occSlots = currentSlots.filter(s => s.status !== 'free');
-                if (occSlots.length > 0) {
+                const occSpots = currentSlots.filter(s => s.status !== 'free');
+                if (occSpots.length > 0) {
                     term.innerText = exitMsgs[0];
                     await new Promise(r => setTimeout(r, 1500));
                     term.innerText = exitMsgs[1];
                     await new Promise(r => setTimeout(r, 1500));
                     term.innerText = exitMsgs[2];
 
-                    const target = occSlots[Math.floor(Math.random() * occSlots.length)];
-                    vacateSlot(target);
+                    const target = occSpots[Math.floor(Math.random() * occSpots.length)];
+                    animateVacation(target);
                 } else {
                     term.innerText = "> STANDBY_MODE";
                 }
             }, 5000);
         }
 
-        function fireLaser(slot) {
-            const start = L.latLng(GATE);
+        function animateAllocation(slot) {
+            const start = L.latLng(ENTRANCE);
             const end = L.latLng(slot.lat, slot.lng);
-            const line = L.polyline([start, end], { color: '#00f2ff', weight: 2, className: 'laser-beam' }).addTo(map);
-            const dot = L.circleMarker(start, { radius: 4, fillColor: '#fff', color: '#00f2ff', fillOpacity: 1 }).addTo(map);
+            const beam = L.polyline([start, end], { color: '#00f2ff', weight: 2, className: 'laser-beam' }).addTo(map);
+            const bolt = L.circleMarker(start, { radius: 4, fillColor: '#fff', color: '#00f2ff', fillOpacity: 1 }).addTo(map);
 
             let p = 0;
             const anim = () => {
                 p += 0.05;
                 if (p <= 1) {
-                    dot.setLatLng([start.lat + (end.lat - start.lat) * p, start.lng + (end.lng - start.lng) * p]);
+                    bolt.setLatLng([start.lat + (end.lat - start.lat) * p, start.lng + (end.lng - start.lng) * p]);
                     requestAnimationFrame(anim);
                 } else {
-                    map.removeLayer(line); map.removeLayer(dot);
-                    slotMarkers[slot.slot_id].m.setStyle({ fillColor: '#FF0000', color: '#FF0000' });
+                    map.removeLayer(beam); map.removeLayer(bolt);
+                    slotMarkers[slot.slot_id].marker.setStyle({ fillColor: '#FF0000', color: '#FF0000' });
                     slot.status = 'occupied';
-                    addLog(`NODE ${slot.slot_id} : ALLOCATED`);
-                    refreshStats();
+                    pushLog(`NODE ${slot.slot_id} : ALLOCATED`);
+                    syncStats();
                 }
             };
             anim();
         }
 
-        function vacateSlot(slot) {
-            // Flash effect
-            const m = slotMarkers[slot.slot_id].m;
+        function animateVacation(slot) {
+            const m = slotMarkers[slot.slot_id].marker;
             m.setStyle({ fillColor: '#fff', color: '#fff' });
 
             setTimeout(() => {
-                let color = slot.zone_type === 'suv' ? '#FFD700' : slot.zone_type === 'logistics' ? '#D000FF' : slot.zone_type === 'bike' ? '#00FFFF' : '#00ff00';
+                let color = (slot.zone_type === 'suv' ? '#FFD700' : slot.zone_type === 'logistics' ? '#D000FF' : slot.zone_type === 'bike' ? '#00FFFF' : '#00ff00');
                 m.setStyle({ fillColor: color, color: color });
                 slot.status = 'free';
-                addLog(`NODE ${slot.slot_id} : VACATED (+₹150)`);
-                refreshStats();
+                pushLog(`NODE ${slot.slot_id} : VACATED (+₹150)`);
+                syncStats();
             }, 1000);
         }
 
-        async function refreshStats() {
+        async function syncStats() {
             const res = await fetch('logic.php?action=fetch_status');
             const data = await res.json();
-            updateStats(data);
+            updateHUD(data);
         }
 
-        init();
+        window.onload = initDashboard;
     </script>
 </body>
 
