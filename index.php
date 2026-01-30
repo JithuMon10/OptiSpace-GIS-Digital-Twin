@@ -6,7 +6,7 @@ require 'db_connect.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OptiSpace | Command Center Final v7.8</title>
+    <title>OptiSpace | Command Center - Auto-Pilot v7.9</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
@@ -197,7 +197,7 @@ require 'db_connect.php';
 
         .log-time { color: var(--accent); font-weight: bold; margin-right: 5px; }
 
-        /* --- CCTV HUD (Updated Location) --- */
+        /* --- CCTV HUD (Fixed Location) --- */
         .cctv-hud {
             bottom: 20px;
             left: 20px;
@@ -205,7 +205,7 @@ require 'db_connect.php';
             border-radius: 8px;
             overflow: hidden;
             border: 2px solid var(--neon-border);
-            position: absolute; /* Direct position */
+            position: absolute;
         }
 
         .cctv-title {
@@ -278,29 +278,10 @@ require 'db_connect.php';
             font-family: 'Roboto Mono', monospace;
         }
 
-        .human-loop-status {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(255, 165, 0, 0.2);
-            color: #ffa500;
-            padding: 4px 8px;
-            font-size: 0.5rem;
-            border: 1px solid #ffa500;
-            z-index: 20;
-            animation: blink 1.5s infinite;
-        }
-
         @keyframes scan {
             0% { top: 0; }
             50% { top: 100%; }
             100% { top: 0; }
-        }
-
-        @keyframes blink {
-            0% { opacity: 1; }
-            50% { opacity: 0.2; }
-            100% { opacity: 1; }
         }
 
         /* --- MAP OVERRIDES --- */
@@ -354,9 +335,10 @@ require 'db_connect.php';
         </div>
     </div>
 
+    <!-- SIDEBAR -->
     <div class="hud hud-panel sidebar-hud">
         <div class="zone-section">
-            <div class="section-title">Field Fitment Status</div>
+            <div class="section-title">Fleet Fitment Status</div>
             <div class="zone-grid">
                 <div class="zone-card">
                     <div class="name">🚗 General</div>
@@ -378,21 +360,20 @@ require 'db_connect.php';
         </div>
 
         <div class="log-container">
-            <div class="section-title">Node Telemetry Log</div>
+            <div class="section-title">Field Node Activity</div>
             <div id="event-log">
-                <div class="log-entry"><span class="log-time">CORE</span> Link established.</div>
+                <div class="log-entry"><span class="log-time">SYS</span> Establishing node connection...</div>
             </div>
         </div>
     </div>
 
-    <!-- CCTV HUD (Final Layout) -->
-    <div class="hud hud-panel cctv-hud" id="cctv-panel">
+    <!-- CCTV HUD WITH AUTO-PILOT AI -->
+    <div class="hud hud-panel cctv-hud">
         <div class="cctv-title">
             <span>LIVE // GATE_SURVEILLANCE_01</span>
             <span style="color: red; font-weight: bold;">● REC</span>
         </div>
         <div class="cctv-view">
-            <div class="human-loop-status">WAITING FOR MANUAL CONFIRMATION...</div>
             <div class="scan-line" id="laser-scan"></div>
             <div class="bounding-box" id="ai-box"></div>
             <div class="ai-log-overlay" id="ai-text-log"></div>
@@ -416,13 +397,14 @@ require 'db_connect.php';
 
         const ENTRANCE_GATE = [8.488533, 76.921948];
         let slotMarkers = {};
-        let lastStates = {};
+        let lastStates = {}; // Stores latest captured status data
+        let currentSlotsArray = []; // List of all slot objects
+        let isLoopRunning = false;
         let activeVideo = 1;
 
-        // --- SURVEILLANCE SYNC ---
+        // --- SURVEILLANCE SYNC & LOOP ---
         const player = document.getElementById('ai-player');
-        player.playbackRate = 0.75; // Slower for better analysis visibility
-
+        player.playbackRate = 0.75;
         player.onended = () => {
             activeVideo = activeVideo === 1 ? 2 : 1;
             player.src = `cctv/VID${activeVideo}.mp4`;
@@ -430,54 +412,73 @@ require 'db_connect.php';
             player.play();
         };
 
-        async function triggerCCTVSurveillance(slot) {
+        // Continuous Loop Trigger
+        async function runAutoPilotLoop() {
+            if (isLoopRunning) return;
+            
+            // Wait for 10-15 seconds before starting the next visual cycle
+            await new Promise(r => setTimeout(r, 10000 + Math.random() * 5000));
+            
+            // Find a random free slot
+            const freeSlots = currentSlotsArray.filter(s => s.status === 'free');
+            if (freeSlots.length > 0) {
+                const targetSlot = freeSlots[Math.floor(Math.random() * freeSlots.length)];
+                await triggerCCTVSurveillance(targetSlot, true);
+            }
+            
+            runAutoPilotLoop();
+        }
+
+        async function triggerCCTVSurveillance(slot, isSimulation = false) {
+            isLoopRunning = true;
             const logPanel = document.getElementById('ai-text-log');
             const scanLine = document.getElementById('laser-scan');
             const aiBox = document.getElementById('ai-box');
             
             logPanel.style.display = 'block';
             scanLine.style.display = 'block';
-            logPanel.innerHTML = "> INCOMING VEHICLE DETECTED...<br>> ANALYZING DIMENSIONS...";
+            logPanel.innerHTML = "> INCOMING VEHICLE DETECTED...<br>> ANALYZING GEOMETRY...";
             
-            // Adjusted delays for 0.75x speed
-            await new Promise(r => setTimeout(r, 3000)); // Detect (3s)
+            await new Promise(r => setTimeout(r, 3000));
             
             aiBox.style.display = 'block';
             logPanel.innerHTML += `<br>> CLASS: SCANNING...`;
 
-            await new Promise(r => setTimeout(r, 2500)); // Analyze (3+2.5=5.5s)
+            await new Promise(r => setTimeout(r, 2500));
             
-            const vClasses = ['SUV (Large Fitment)', 'CAR (Standard)', 'BIKE (Small)', 'TRUCK (Heavy)'];
+            const vClasses = ['SUV (Fitment: Large)', 'CAR (Fitment: Std)', 'BIKE (Fitment: Compact)', 'TRUCK (Fitment: Heavy)'];
             const vClass = vClasses[Math.floor(Math.random() * vClasses.length)];
-            logPanel.innerHTML += `<br>> RESULT: ${vClass}<br>> FASTag ID: ${Math.random().toString(16).substr(2, 8).toUpperCase()}`;
+            const tagID = "FASTag-" + Math.floor(1000 + Math.random() * 8999).toString(16).toUpperCase();
+            logPanel.innerHTML += `<br>> RESULT: ${vClass}<br>> ID: ${tagID}`;
 
-            await new Promise(r => setTimeout(r, 2500)); // Allocate (5.5+2.5=8s)
+            await new Promise(r => setTimeout(r, 2500));
             
             logPanel.innerHTML += `<br>> ALLOCATING NODE ${slot.slot_id}...`;
             
             // FIRE DATA BEAM
-            fireDataBeam(slot);
+            fireDataBeam(slot, isSimulation);
 
             await new Promise(r => setTimeout(r, 3000));
             
             scanLine.style.display = 'none';
             aiBox.style.display = 'none';
             logPanel.style.display = 'none';
+            isLoopRunning = false;
         }
 
-        function fireDataBeam(slot) {
+        function fireDataBeam(slot, isSimulation = false) {
             const start = L.latLng(ENTRANCE_GATE);
             const end = L.latLng(parseFloat(slot.lat), parseFloat(slot.lng));
 
             const beam = L.polyline([start, end], {
-                color: '#00f2ff',weight: 2, opacity: 0.6, dashArray: '5, 10', className: 'beam-path'
+                color: '#00f2ff', weight: 2, opacity: 0.6, dashArray: '5, 10', className: 'beam-path'
             }).addTo(map);
 
             const projectile = L.circleMarker(start, {
                 radius: 5, fillColor: '#fff', fillOpacity: 1, color: '#00f2ff', weight: 2
             }).addTo(map);
 
-            const duration = 800; // Fast signal speed
+            const duration = 800;
             const startTime = performance.now();
 
             function animate(time) {
@@ -486,25 +487,38 @@ require 'db_connect.php';
                 const currentLat = start.lat + (end.lat - start.lat) * progress;
                 const currentLng = start.lng + (end.lng - start.lng) * progress;
                 projectile.setLatLng([currentLat, currentLng]);
+                
                 if (progress < 1) requestAnimationFrame(animate);
                 else {
                     map.removeLayer(beam);
                     map.removeLayer(projectile);
-                    applySlotStatusUpdate(slot);
-                    addLog(`${slot.slot_id} : STATE SYNCHRONIZED.`);
+                    
+                    if (isSimulation) {
+                        // Just flash the slot to show impact but don't change status
+                        if (slotMarkers[slot.slot_id]) {
+                            const originalColor = getSlotColor(slot);
+                            slotMarkers[slot.slot_id].setStyle({ fillColor: '#fff', color: '#fff' });
+                            setTimeout(() => {
+                                slotMarkers[slot.slot_id].setStyle({ fillColor: originalColor, color: originalColor });
+                            }, 500);
+                        }
+                    } else {
+                        applySlotStatusUpdate(slot);
+                    }
+                    addLog(`${slot.slot_id} : NODE SIGNAL SYNCED.`);
                 }
             }
             requestAnimationFrame(animate);
         }
 
         function getSlotColor(slot) {
-            // STRICT COLOR MATRIX (v7.8)
-            if (slot.status === 'occupied') return '#FF0000'; // Red
-            if (slot.status === 'inefficient') return '#FFA500'; // Orange
+            // STRICT COLOR MATRIX (v7.9)
+            if (slot.status === 'occupied') return '#FF0000';
+            if (slot.status === 'inefficient') return '#FFA500';
             if (slot.zone_type === 'suv') return '#FFD700'; // Gold
             if (slot.zone_type === 'logistics') return '#D000FF'; // Purple
             if (slot.zone_type === 'bike') return '#00FFFF'; // Cyan
-            return '#00FF00'; // Green (General)
+            return '#00FF00'; // Green
         }
 
         function applySlotStatusUpdate(slot) {
@@ -521,7 +535,7 @@ require 'db_connect.php';
             const time = new Date().toLocaleTimeString([], { hour12: false });
             entry.innerHTML = `<span class="log-time">${time}</span> ${msg}`;
             log.prepend(entry);
-            if (log.children.length > 25) log.lastChild.remove();
+            if (log.children.length > 20) log.lastChild.remove();
         }
 
         async function updateDashboard() {
@@ -530,8 +544,9 @@ require 'db_connect.php';
                 const data = await response.json();
                 if (!data || data.status !== 'success') return;
 
+                currentSlotsArray = data.slots;
                 const total = data.slots.length;
-                let occupiedCount = 0;
+                let occ = 0;
                 let zones = { general: {o:0, t:0}, suv: {o:0, t:0}, bike: {o:0, t:0}, logistics: {o:0, t:0} };
 
                 data.slots.forEach(slot => {
@@ -540,16 +555,16 @@ require 'db_connect.php';
                         zones[z].t++;
                         if (slot.status !== 'free') {
                             zones[z].o++;
-                            occupiedCount++;
+                            occ++;
                         }
                     }
 
-                    // TRIGGER ANIMATION ON NEW ENTRY
+                    // REAL SENSOR TRIGGER
                     if (lastStates[slot.slot_id] === 'free' && slot.status !== 'free') {
-                        triggerCCTVSurveillance(slot);
+                        triggerCCTVSurveillance(slot, false);
                     } else if (lastStates[slot.slot_id] && lastStates[slot.slot_id] !== 'free' && slot.status === 'free') {
                         applySlotStatusUpdate(slot);
-                        addLog(`${slot.slot_id} : NODE VACATED.`);
+                        addLog(`${slot.slot_id} : DISCONNECT.`);
                     } else {
                         applySlotStatusUpdate(slot);
                     }
@@ -560,24 +575,27 @@ require 'db_connect.php';
                         const m = L.circle([parseFloat(slot.lat), parseFloat(slot.lng)], {
                             radius: 2.2, fillColor: getSlotColor(slot), fillOpacity: 0.7, color: getSlotColor(slot), weight: 1.5
                         }).addTo(map);
-                        m.bindPopup(`<div style="font-family:'Orbitron'; font-size: 0.8rem;"><b>${slot.slot_name}</b><br>Zone: ${z.toUpperCase()}</div>`);
+                        m.bindPopup(`<div style="font-family:'Orbitron'; font-size: 0.7rem;"><b>${slot.slot_name}</b><br>Zone: ${z.toUpperCase()}</div>`);
                         slotMarkers[slot.slot_id] = m;
                     }
                 });
 
-                document.getElementById('occupancy-val').innerText = `${occupiedCount} / ${total} (${Math.round((occupiedCount/total)*100)}%)`;
+                document.getElementById('occupancy-val').innerText = `${occ} / ${total} (${Math.round((occ/total)*100)}%)`;
                 document.getElementById('revenue-val').innerText = `₹ ${data.stats.revenue}`;
                 document.getElementById('co2-val').innerText = `${data.stats.co2_saved} kg`;
                 document.getElementById('z-general').innerText = `${zones.general.o} / ${zones.general.t}`;
                 document.getElementById('z-suv').innerText = `${zones.suv.o} / ${zones.suv.t}`;
                 document.getElementById('z-bike').innerText = `${zones.bike.o} / ${zones.bike.t}`;
                 document.getElementById('z-logistics').innerText = `${zones.logistics.o} / ${zones.logistics.t}`;
-            } catch (err) { console.error("Sync Error:", err); }
+            } catch (err) { console.error("Data Sync Fail."); }
         }
 
         setInterval(updateDashboard, 2000);
-        updateDashboard();
-        addLog("AI-SEC NUCLEUS INITIALIZED.");
+        updateDashboard().then(() => {
+            // Start Auto-Pilot loop after initial data load
+            runAutoPilotLoop();
+        });
+        addLog("AI-SEC SYSTEM READY.");
     </script>
 </body>
 </html>
