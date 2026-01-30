@@ -316,7 +316,7 @@
 
                         marker.bindPopup(`
                             <div style="font-family:'Orbitron'; font-size:0.8rem; line-height:1.4;">
-                                <b>Slot: ${slot.slot_id}</b><br>
+                                <b>${slot.slot_name}</b><br>
                                 Zone: ${slot.zone_type.charAt(0).toUpperCase() + slot.zone_type.slice(1)}<br>
                                 Status: ${slot.status.charAt(0).toUpperCase() + slot.status.slice(1)}
                             </div>

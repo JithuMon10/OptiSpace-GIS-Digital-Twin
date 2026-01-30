@@ -45,6 +45,10 @@ try {
 
         if ($type === 'suv')
             $target_zone = 'premium';
+        if ($type === 'truck')
+            $target_zone = 'logistics';
+        if ($type === 'bike')
+            $target_zone = 'bike';
 
         // Strict Truck Logic
         if ($type === 'truck') {
@@ -57,13 +61,20 @@ try {
                 exit;
             }
         }
-        // Bike Logic
+        // Bike Logic (Priority: Bike Zone -> General -> Premium)
         else if ($type === 'bike') {
-            // Priority: General -> Premium (Inefficient)
-            $sql = "SELECT slot_id, zone_type FROM parking_slots WHERE status='free' AND zone_type='general' LIMIT 1";
+            // 1. Try Dedicated Bike Zone
+            $sql = "SELECT slot_id, zone_type FROM parking_slots WHERE status='free' AND zone_type='bike' LIMIT 1";
             $slot = $pdo->query($sql)->fetch();
 
             if (!$slot) {
+                // 2. Try General Zone
+                $sql = "SELECT slot_id, zone_type FROM parking_slots WHERE status='free' AND zone_type='general' LIMIT 1";
+                $slot = $pdo->query($sql)->fetch();
+            }
+
+            if (!$slot) {
+                // 3. Try Premium Zone (Result: Inefficient)
                 $sql = "SELECT slot_id, zone_type FROM parking_slots WHERE status='free' AND zone_type='premium' LIMIT 1";
                 $slot = $pdo->query($sql)->fetch();
                 if ($slot)
