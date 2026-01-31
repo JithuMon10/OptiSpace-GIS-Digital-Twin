@@ -62,6 +62,10 @@
             position: absolute;
             inset: 0;
             z-index: 1;
+            /* 3D Transform */
+            transform: perspective(1200px) rotateX(25deg) scale(1.1);
+            /* Depth Shadows */
+            box-shadow: inset 0 0 150px rgba(0, 0, 0, 0.9);
         }
 
         /* GLASS PANELS */
