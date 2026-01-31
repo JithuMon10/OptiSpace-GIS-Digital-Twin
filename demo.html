@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Parking System | OptiSpace - Demo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            /* Muted Color Palette */
+            --color-free: #22c55e;
+            --color-occupied: #dc2626;
+            --color-bike: #eab308;
+            --color-general: #3b82f6;
+            --color-suv: #a855f7;
+            --color-logistics: #a855f7;
+            --color-active: #06b6d4;
+            --color-warning: #f97316;
+
+            /* Theme */
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #151b2e;
+            --glass: rgba(15, 20, 35, 0.85);
+            --border: rgba(100, 116, 139, 0.2);
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+
+            /* Spacing Grid */
+            --gap-xs: 4px;
+            --gap-sm: 8px;
+            --gap-md: 16px;
+            --gap-lg: 24px;
+            --gap-xl: 32px;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        /* MAP BASE */
+        #map {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            /* 3D Transform */
+            transform: perspective(1200px) rotateX(25deg) scale(1.1);
+            /* Depth Shadows */
+            box-shadow: inset 0 0 150px rgba(0, 0, 0, 0.9);
+        }
+
+        /* DEMO BADGE */
+        .demo-badge {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            padding: 4px 10px;
+            background: rgba(6, 182, 212, 0.15);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--color-active);
+            z-index: 10000;
+            opacity: 0.6;
+        }
+
+        /* Ensure no overlap with header metrics */
+        @media (max-width: 1400px) {
+            .demo-badge {
+                top: 64px;
+                /* Below status bar */
+            }
+        }
+
+        /* GLASS PANELS */
+        .glass-panel {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* TOP STATUS BAR */
+        #status-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 var(--gap-lg);
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            z-index: 1000;
+        }
+
+        .status-bar-section {
+            display: flex;
+            align-items: center;
+            gap: var(--gap-lg);
+        }
+
+        .app-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+
+        .location-pill {
+            padding: 6px 14px;
+            background: rgba(6, 182, 212, 0.12);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-active);
+        }
+
+        .status-metric {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+        }
+
+        .status-metric-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .status-metric-label {
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: var(--gap-sm);
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--color-free);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--color-free);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--color-free);
+            animation: breathe 2s ease-in-out infinite;
+        }
+
+        @keyframes breathe {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.6;
+                transform: scale(0.9);
+            }
+        }
+
+        /* LEFT OPERATIONS PANEL */
+        #operations-panel {
+            position: fixed;
+            top: 72px;
+            left: var(--gap-md);
+            width: 340px;
+            max-height: calc(100vh - 180px);
+            padding: var(--gap-lg);
+            z-index: 900;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        #operations-panel::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        #operations-panel::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #operations-panel::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 2px;
+        }
+
+        .panel-section {
+            margin-bottom: var(--gap-lg);
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: var(--gap-md);
+        }
+
+        /* METRIC CARDS */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--gap-md);
+        }
+
+        .metric-card {
+            padding: var(--gap-md);
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            border-color: var(--color-active);
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.15);
+        }
+
+        .metric-label {
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: var(--gap-sm);
+        }
+
+        .metric-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 32px;
+            font-weight: 700;
+            transition: all 0.3s ease;
+        }
+
+        .metric-value.green {
+            color: var(--color-free);
+        }
+
+        .metric-value.red {
+            color: var(--color-occupied);
+        }
+
+        /* CAMERA FEEDS */
+        .camera-feed {
+            position: relative;
+            height: 140px;
+            background: #000;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            margin-bottom: var(--gap-md);
+            transition: all 0.3s ease;
+        }
+
+        .camera-feed:hover {
+            border-color: var(--color-active);
+            box-shadow: 0 0 16px rgba(6, 182, 212, 0.2);
+        }
+
+        .camera-feed video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: brightness(0.9) contrast(1.05);
+        }
+
+        .cam-rotate {
+            transform: rotate(180deg);
+        }
+
+        .camera-header {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 5;
+        }
+
+        .camera-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .rec-indicator {
+            width: 6px;
+            height: 6px;
+            background: #ef4444;
+            border-radius: 50%;
+            animation: pulse-rec 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-rec {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        .live-badge {
+            padding: 4px 8px;
+            background: rgba(6, 182, 212, 0.2);
+            border: 1px solid var(--color-active);
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--color-active);
+            animation: pulse-live 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-live {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .camera-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.8);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--color-free);
+            text-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+            z-index: 5;
+        }
+
+        .payment-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 8px 16px;
+            background: var(--color-free);
+            color: #000;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 4px;
+            box-shadow: 0 0 24px var(--color-free);
+            display: none;
+            z-index: 10;
+        }
+
+        /* RIGHT PANEL */
+        #right-panel {
+            position: fixed;
+            top: 72px;
+            right: var(--gap-md);
+            width: 280px;
+            max-height: calc(100vh - 180px);
+            padding: var(--gap-lg);
+            z-index: 900;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .revenue-display {
+            text-align: center;
+            padding: var(--gap-lg);
+            background: rgba(6, 182, 212, 0.08);
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            border-radius: 8px;
+            margin-bottom: var(--gap-lg);
+        }
+
+        .revenue-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: var(--gap-sm);
+        }
+
+        .revenue-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--color-active);
+        }
+
+        .event-log {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: var(--gap-md);
+        }
+
+        .log-entry {
+            padding: var(--gap-sm) 0;
+            padding-left: var(--gap-sm);
+            border-left: 2px solid var(--color-active);
+            margin-bottom: var(--gap-sm);
+            font-size: 11px;
+            color: var(--text-secondary);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .log-time {
+            color: var(--color-active);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* BOTTOM FOOTER */
+        #legend-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: auto;
+            padding: var(--gap-sm) var(--gap-xl);
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            gap: var(--gap-xl);
+            align-items: center;
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid var(--border);
+            z-index: 1000;
+        }
+
+        .footer-section {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .footer-title {
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .legend-grid {
+            display: flex;
+            gap: var(--gap-lg);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+
+        .footer-list {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .footer-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+        }
+
+        .footer-item-label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--text-secondary);
+        }
+
+        .footer-item-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .footer-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
+            color: var(--color-free);
+        }
+
+        .footer-status::before {
+            content: '';
+            width: 5px;
+            height: 5px;
+            background: var(--color-free);
+            border-radius: 50%;
+            box-shadow: 0 0 4px var(--color-free);
+        }
+
+        .legend-color,
+        .color-bullet {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+        }
+
+        /* MAP SLOT ANIMATIONS */
+        .leaflet-interactive {
+            transition: fill 0.3s ease, stroke 0.3s ease !important;
+        }
+
+        /* SLOT LABELS */
+        .slot-label {
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 800;
+            color: #fff;
+            text-shadow: 0 0 4px rgba(0, 0, 0, 1), 0 0 8px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+        }
+
+        .slot-label::before {
+            display: none !important;
+        }
+
+        /* DATA PACKET */
+        .data-trail {
+            opacity: 0.3;
+        }
+
+        .data-packet {
+            filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 10px var(--color-active));
+        }
+    </style>
+</head>
+
+<body>
+    <!-- DEMO MODE INDICATOR -->
+    <div class="demo-badge">DEMO MODE</div>
+
+    <div id="map"></div>
+
+    <!-- TOP STATUS BAR -->
+    <div id="status-bar">
+        <div class="status-bar-section">
+            <div class="app-title">Smart Park System</div>
+        </div>
+        <div class="status-bar-section">
+            <div class="location-pill">TRV Airport Parking Lot</div>
+        </div>
+        <div class="status-bar-section">
+            <div class="status-metric">
+                <div class="status-metric-value">₹ <span id="header-revenue">0</span></div>
+                <div class="status-metric-label">Revenue Today</div>
+            </div>
+            <div class="status-metric">
+                <div class="status-metric-value"><span id="header-util">0</span>%</div>
+                <div class="status-metric-label">Utilization</div>
+            </div>
+            <div class="system-status">
+                <div class="status-dot"></div>
+                SYSTEM ONLINE
+            </div>
+        </div>
+    </div>
+
+    <!-- LEFT OPERATIONS PANEL -->
+    <div id="operations-panel" class="glass-panel">
+        <!-- SECTION A: METRICS -->
+        <div class="panel-section">
+            <div class="section-title">Live Metrics</div>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Free Slots</div>
+                    <div class="metric-value green" id="free-count">0</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Occupied</div>
+                    <div class="metric-value red" id="occ-count">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION B: CAMERAS -->
+        <div class="panel-section">
+            <div class="section-title">Camera Feeds</div>
+
+            <!-- CAM-01 ENTRY -->
+            <div class="camera-feed">
+                <div class="camera-header">
+                    <div class="camera-label">
+                        <div class="rec-indicator"></div>
+                        CAM-01 FRONT
+                    </div>
+                    <div class="live-badge">LIVE</div>
+                </div>
+                <video id="vid-entry" src="cctv/VID1.mp4" autoplay muted loop></video>
+                <div class="camera-overlay" id="entry-overlay">> SCANNING...</div>
+            </div>
+
+            <!-- CAM-02 EXIT -->
+            <div class="camera-feed">
+                <div class="camera-header">
+                    <div class="camera-label">
+                        <div class="rec-indicator"></div>
+                        CAM-02 REAR
+                    </div>
+                    <div class="live-badge">LIVE</div>
+                </div>
+                <div class="payment-overlay" id="payment-flash">✔ PAYMENT RECEIVED</div>
+                <video class="cam-rotate" id="vid-exit" src="cctv/VID2.mp4" autoplay muted loop></video>
+                <div class="camera-overlay" id="exit-overlay">> MONITORING...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div id="right-panel" class="glass-panel">
+        <div class="section-title">Revenue Tracker</div>
+        <div class="revenue-display">
+            <div class="revenue-label">Today's Revenue</div>
+            <div class="revenue-value">₹ <span id="revenue">0</span></div>
+        </div>
+
+        <div class="section-title">Live Event Log</div>
+        <div class="event-log" id="event-log"></div>
+    </div>
+
+    <!-- BOTTOM FOOTER -->
+    <div id="legend-bar">
+        <!-- LEFT: AVAILABILITY -->
+        <div class="footer-section">
+            <div class="footer-title">Availability by Type</div>
+            <div class="footer-list">
+                <div class="footer-item">
+                    <div class="footer-item-label">
+                        <div class="color-bullet" style="background: var(--color-bike)"></div>
+                        Bike Zone
+                    </div>
+                    <div class="footer-item-value" id="avail-bike">0</div>
+                </div>
+                <div class="footer-item">
+                    <div class="footer-item-label">
+                        <div class="color-bullet" style="background: var(--color-general)"></div>
+                        General
+                    </div>
+                    <div class="footer-item-value" id="avail-gen">0</div>
+                </div>
+                <div class="footer-item">
+                    <div class="footer-item-label">
+                        <div class="color-bullet" style="background: var(--color-suv)"></div>
+                        SUV / Premium
+                    </div>
+                    <div class="footer-item-value" id="avail-suv">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTER: LEGEND -->
+        <div class="footer-section">
+            <div class="legend-grid">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--color-free)"></div>
+                    Free
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--color-occupied)"></div>
+                    Occupied
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--color-bike)"></div>
+                    Bike
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--color-general)"></div>
+                    General
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--color-suv)"></div>
+                    SUV
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: SYSTEM HEALTH -->
+        <div class="footer-section" style="align-items: flex-end;">
+            <div class="footer-title" style="text-align: right;">System Health</div>
+            <div class="footer-list">
+                <div class="footer-item">
+                    <div class="footer-item-label">Gate Sensors</div>
+                    <div class="footer-status">Online</div>
+                </div>
+                <div class="footer-item">
+                    <div class="footer-item-label">CCTV Array</div>
+                    <div class="footer-status">2 / 2 Active</div>
+                </div>
+                <div class="footer-item">
+                    <div class="footer-item-label">AI Detection</div>
+                    <div class="footer-status">Running</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // ========== EMBEDDED DEMO DATA ==========
+        // Data embedded as constant array, loaded once on initialization
+        // Coordinates and zones match actual database from setup_files/optispace_db.sql
+                const DEMO_SLOTS = [
+            { slot_id: 3, slot_name: 'A-1', lat: 8.48857363, lng: 76.92205273, zone_type: 'suv', status: 'free' },
+            { slot_id: 4, slot_name: 'A-2', lat: 8.48855506, lng: 76.92207954, zone_type: 'suv', status: 'free' },
+            { slot_id: 5, slot_name: 'A-3', lat: 8.48853915, lng: 76.92210099, zone_type: 'suv', status: 'free' },
+            { slot_id: 6, slot_name: 'A-4', lat: 8.48851794, lng: 76.92211708, zone_type: 'suv', status: 'free' },
+            { slot_id: 7, slot_name: 'A-5', lat: 8.48849937, lng: 76.92213585, zone_type: 'suv', status: 'free' },
+            { slot_id: 8, slot_name: 'A-6', lat: 8.48847020, lng: 76.92214926, zone_type: 'suv', status: 'free' },
+            { slot_id: 9, slot_name: 'A-7', lat: 8.48845429, lng: 76.92217071, zone_type: 'suv', status: 'occupied' },
+            { slot_id: 10, slot_name: 'A-8', lat: 8.48843572, lng: 76.92218679, zone_type: 'suv', status: 'occupied' },
+            { slot_id: 11, slot_name: 'A-9', lat: 8.48841185, lng: 76.92220556, zone_type: 'suv', status: 'occupied' },
+            { slot_id: 12, slot_name: 'A-10', lat: 8.48862402, lng: 76.92211440, zone_type: 'suv', status: 'free' },
+            { slot_id: 13, slot_name: 'A-11', lat: 8.48860545, lng: 76.92213049, zone_type: 'suv', status: 'free' },
+            { slot_id: 14, slot_name: 'A-12', lat: 8.48859750, lng: 76.92215462, zone_type: 'suv', status: 'free' },
+            { slot_id: 15, slot_name: 'A-13', lat: 8.48856832, lng: 76.92216266, zone_type: 'suv', status: 'occupied' },
+            { slot_id: 16, slot_name: 'A-14', lat: 8.48854711, lng: 76.92218947, zone_type: 'suv', status: 'occupied' },
+            { slot_id: 17, slot_name: 'A-15', lat: 8.48853120, lng: 76.92221093, zone_type: 'suv', status: 'occupied' },
+            { slot_id: 18, slot_name: 'A-16', lat: 8.48851263, lng: 76.92223238, zone_type: 'suv', status: 'free' },
+            { slot_id: 19, slot_name: 'A-17', lat: 8.48849407, lng: 76.92224846, zone_type: 'suv', status: 'free' },
+            { slot_id: 20, slot_name: 'A-18', lat: 8.48847285, lng: 76.92226187, zone_type: 'suv', status: 'free' },
+            { slot_id: 21, slot_name: 'A-19', lat: 8.48868767, lng: 76.92221093, zone_type: 'suv', status: 'free' },
+            { slot_id: 22, slot_name: 'A-20', lat: 8.48866645, lng: 76.92222969, zone_type: 'suv', status: 'free' },
+            { slot_id: 23, slot_name: 'A-21', lat: 8.48864258, lng: 76.92225114, zone_type: 'suv', status: 'free' },
+            { slot_id: 24, slot_name: 'A-22', lat: 8.48862402, lng: 76.92227528, zone_type: 'suv', status: 'free' },
+            { slot_id: 25, slot_name: 'A-23', lat: 8.48859484, lng: 76.92228064, zone_type: 'suv', status: 'free' },
+            { slot_id: 26, slot_name: 'A-24', lat: 8.48858158, lng: 76.92230209, zone_type: 'suv', status: 'occupied' },
+            { slot_id: 27, slot_name: 'A-25', lat: 8.48856037, lng: 76.92232622, zone_type: 'suv', status: 'free' },
+            { slot_id: 28, slot_name: 'A-26', lat: 8.48853650, lng: 76.92233963, zone_type: 'suv', status: 'occupied' },
+            { slot_id: 29, slot_name: 'A-27', lat: 8.48875132, lng: 76.92227528, zone_type: 'suv', status: 'occupied' },
+            { slot_id: 30, slot_name: 'A-28', lat: 8.48873010, lng: 76.92229673, zone_type: 'suv', status: 'free' },
+            { slot_id: 31, slot_name: 'A-29', lat: 8.48869828, lng: 76.92231550, zone_type: 'suv', status: 'free' },
+            { slot_id: 32, slot_name: 'A-30', lat: 8.48867706, lng: 76.92232890, zone_type: 'suv', status: 'free' },
+            { slot_id: 33, slot_name: 'A-31', lat: 8.48865849, lng: 76.92235303, zone_type: 'suv', status: 'free' },
+            { slot_id: 34, slot_name: 'A-32', lat: 8.48863728, lng: 76.92237180, zone_type: 'suv', status: 'free' },
+            { slot_id: 35, slot_name: 'A-33', lat: 8.48861606, lng: 76.92239057, zone_type: 'suv', status: 'free' },
+            { slot_id: 36, slot_name: 'A-34', lat: 8.48859484, lng: 76.92241470, zone_type: 'suv', status: 'free' },
+            { slot_id: 37, slot_name: 'A-35', lat: 8.48814665, lng: 76.92250050, zone_type: 'general', status: 'occupied' },
+            { slot_id: 38, slot_name: 'A-36', lat: 8.48817847, lng: 76.92254340, zone_type: 'general', status: 'free' },
+            { slot_id: 39, slot_name: 'A-37', lat: 8.48819969, lng: 76.92256754, zone_type: 'general', status: 'occupied' },
+            { slot_id: 40, slot_name: 'A-38', lat: 8.48821825, lng: 76.92258630, zone_type: 'general', status: 'free' },
+            { slot_id: 41, slot_name: 'A-39', lat: 8.48824212, lng: 76.92259971, zone_type: 'general', status: 'free' },
+            { slot_id: 42, slot_name: 'A-40', lat: 8.48825538, lng: 76.92261848, zone_type: 'general', status: 'occupied' },
+            { slot_id: 43, slot_name: 'A-41', lat: 8.48826864, lng: 76.92264261, zone_type: 'general', status: 'free' },
+            { slot_id: 44, slot_name: 'A-42', lat: 8.48828721, lng: 76.92266674, zone_type: 'general', status: 'free' },
+            { slot_id: 45, slot_name: 'A-43', lat: 8.48831638, lng: 76.92267211, zone_type: 'general', status: 'free' },
+            { slot_id: 46, slot_name: 'A-44', lat: 8.48831903, lng: 76.92270428, zone_type: 'general', status: 'free' },
+            { slot_id: 47, slot_name: 'A-45', lat: 8.48834820, lng: 76.92271232, zone_type: 'general', status: 'occupied' },
+            { slot_id: 48, slot_name: 'A-46', lat: 8.48835616, lng: 76.92274718, zone_type: 'general', status: 'free' },
+            { slot_id: 49, slot_name: 'A-47', lat: 8.48838003, lng: 76.92276595, zone_type: 'general', status: 'occupied' },
+            { slot_id: 50, slot_name: 'A-48', lat: 8.48840655, lng: 76.92278204, zone_type: 'general', status: 'free' },
+            { slot_id: 51, slot_name: 'A-49', lat: 8.48805898, lng: 76.92258929, zone_type: 'general', status: 'free' },
+            { slot_id: 52, slot_name: 'A-50', lat: 8.48806694, lng: 76.92261074, zone_type: 'general', status: 'free' },
+            { slot_id: 53, slot_name: 'A-51', lat: 8.48807489, lng: 76.92263219, zone_type: 'general', status: 'free' },
+            { slot_id: 54, slot_name: 'A-52', lat: 8.48809611, lng: 76.92265096, zone_type: 'general', status: 'free' },
+            { slot_id: 55, slot_name: 'A-53', lat: 8.48812793, lng: 76.92266704, zone_type: 'general', status: 'occupied' },
+            { slot_id: 56, slot_name: 'A-54', lat: 8.48812793, lng: 76.92269386, zone_type: 'general', status: 'occupied' },
+            { slot_id: 57, slot_name: 'A-55', lat: 8.48814119, lng: 76.92271799, zone_type: 'general', status: 'occupied' },
+            { slot_id: 58, slot_name: 'A-56', lat: 8.48815711, lng: 76.92272871, zone_type: 'general', status: 'free' },
+            { slot_id: 59, slot_name: 'A-57', lat: 8.48818363, lng: 76.92274748, zone_type: 'general', status: 'occupied' },
+            { slot_id: 60, slot_name: 'A-58', lat: 8.48821545, lng: 76.92273139, zone_type: 'general', status: 'free' },
+            { slot_id: 61, slot_name: 'A-59', lat: 8.48821280, lng: 76.92277161, zone_type: 'general', status: 'occupied' },
+            { slot_id: 62, slot_name: 'A-60', lat: 8.48823136, lng: 76.92279306, zone_type: 'general', status: 'free' },
+            { slot_id: 63, slot_name: 'A-61', lat: 8.48825258, lng: 76.92281451, zone_type: 'general', status: 'free' },
+            { slot_id: 64, slot_name: 'A-62', lat: 8.48827910, lng: 76.92283060, zone_type: 'general', status: 'free' },
+            { slot_id: 65, slot_name: 'A-63', lat: 8.48827910, lng: 76.92286010, zone_type: 'general', status: 'occupied' },
+            { slot_id: 66, slot_name: 'A-64', lat: 8.48831093, lng: 76.92287082, zone_type: 'general', status: 'free' },
+            { slot_id: 67, slot_name: 'A-65', lat: 8.48832949, lng: 76.92289227, zone_type: 'general', status: 'occupied' },
+            { slot_id: 68, slot_name: 'A-66', lat: 8.48835866, lng: 76.92291372, zone_type: 'general', status: 'free' },
+            { slot_id: 69, slot_name: 'B-1', lat: 8.48799533, lng: 76.92263755, zone_type: 'general', status: 'free' },
+            { slot_id: 70, slot_name: 'B-2', lat: 8.48802716, lng: 76.92266436, zone_type: 'general', status: 'occupied' },
+            { slot_id: 71, slot_name: 'B-3', lat: 8.48802450, lng: 76.92269654, zone_type: 'general', status: 'occupied' },
+            { slot_id: 72, slot_name: 'B-4', lat: 8.48805633, lng: 76.92271799, zone_type: 'general', status: 'free' },
+            { slot_id: 73, slot_name: 'B-5', lat: 8.48808815, lng: 76.92272603, zone_type: 'general', status: 'free' },
+            { slot_id: 74, slot_name: 'B-6', lat: 8.48808285, lng: 76.92275553, zone_type: 'general', status: 'free' },
+            { slot_id: 75, slot_name: 'B-7', lat: 8.48810937, lng: 76.92276357, zone_type: 'general', status: 'free' },
+            { slot_id: 76, slot_name: 'B-8', lat: 8.48811998, lng: 76.92279306, zone_type: 'general', status: 'free' },
+            { slot_id: 77, slot_name: 'B-9', lat: 8.48814650, lng: 76.92280647, zone_type: 'general', status: 'free' },
+            { slot_id: 78, slot_name: 'B-10', lat: 8.48817832, lng: 76.92281451, zone_type: 'general', status: 'occupied' },
+            { slot_id: 79, slot_name: 'B-11', lat: 8.48816771, lng: 76.92284669, zone_type: 'general', status: 'free' },
+            { slot_id: 80, slot_name: 'B-12', lat: 8.48819689, lng: 76.92285741, zone_type: 'general', status: 'occupied' },
+            { slot_id: 81, slot_name: 'B-13', lat: 8.48822076, lng: 76.92285473, zone_type: 'general', status: 'occupied' },
+            { slot_id: 82, slot_name: 'B-14', lat: 8.48821280, lng: 76.92289227, zone_type: 'general', status: 'free' },
+            { slot_id: 83, slot_name: 'B-15', lat: 8.48824462, lng: 76.92290568, zone_type: 'general', status: 'occupied' },
+            { slot_id: 84, slot_name: 'B-16', lat: 8.48827645, lng: 76.92290031, zone_type: 'general', status: 'free' },
+            { slot_id: 85, slot_name: 'B-17', lat: 8.48826319, lng: 76.92293785, zone_type: 'general', status: 'free' },
+            { slot_id: 86, slot_name: 'B-18', lat: 8.48830297, lng: 76.92294590, zone_type: 'general', status: 'occupied' },
+            { slot_id: 87, slot_name: 'B-19', lat: 8.48832153, lng: 76.92298075, zone_type: 'general', status: 'free' },
+            { slot_id: 88, slot_name: 'B-20', lat: 8.48833745, lng: 76.92300757, zone_type: 'general', status: 'free' },
+            { slot_id: 89, slot_name: 'B-21', lat: 8.48791577, lng: 76.92272335, zone_type: 'general', status: 'occupied' },
+            { slot_id: 90, slot_name: 'B-22', lat: 8.48793433, lng: 76.92274748, zone_type: 'general', status: 'occupied' },
+            { slot_id: 91, slot_name: 'B-23', lat: 8.48795820, lng: 76.92277429, zone_type: 'general', status: 'free' },
+            { slot_id: 92, slot_name: 'B-24', lat: 8.48797942, lng: 76.92280111, zone_type: 'general', status: 'free' },
+            { slot_id: 93, slot_name: 'B-25', lat: 8.48799003, lng: 76.92282256, zone_type: 'general', status: 'free' },
+            { slot_id: 94, slot_name: 'B-26', lat: 8.48801389, lng: 76.92283328, zone_type: 'general', status: 'free' },
+            { slot_id: 95, slot_name: 'B-27', lat: 8.48802716, lng: 76.92285473, zone_type: 'general', status: 'free' },
+            { slot_id: 96, slot_name: 'B-28', lat: 8.48804307, lng: 76.92288959, zone_type: 'general', status: 'free' },
+            { slot_id: 97, slot_name: 'B-29', lat: 8.48806959, lng: 76.92291908, zone_type: 'general', status: 'free' },
+            { slot_id: 98, slot_name: 'B-30', lat: 8.48809346, lng: 76.92294053, zone_type: 'general', status: 'free' },
+            { slot_id: 99, slot_name: 'B-31', lat: 8.48811202, lng: 76.92296198, zone_type: 'general', status: 'free' },
+            { slot_id: 100, slot_name: 'B-32', lat: 8.48812793, lng: 76.92298343, zone_type: 'general', status: 'free' },
+            { slot_id: 101, slot_name: 'B-33', lat: 8.48815711, lng: 76.92300488, zone_type: 'general', status: 'free' },
+            { slot_id: 102, slot_name: 'B-34', lat: 8.48817037, lng: 76.92302633, zone_type: 'general', status: 'occupied' },
+            { slot_id: 103, slot_name: 'B-35', lat: 8.48818893, lng: 76.92304778, zone_type: 'general', status: 'occupied' },
+            { slot_id: 104, slot_name: 'B-36', lat: 8.48821281, lng: 76.92306119, zone_type: 'general', status: 'free' },
+            { slot_id: 105, slot_name: 'B-37', lat: 8.48822607, lng: 76.92308264, zone_type: 'general', status: 'free' },
+            { slot_id: 106, slot_name: 'C-1', lat: 8.48785478, lng: 76.92277430, zone_type: 'general', status: 'free' },
+            { slot_id: 107, slot_name: 'C-2', lat: 8.48788926, lng: 76.92279575, zone_type: 'general', status: 'free' },
+            { slot_id: 108, slot_name: 'C-3', lat: 8.48789721, lng: 76.92282792, zone_type: 'general', status: 'free' },
+            { slot_id: 109, slot_name: 'C-4', lat: 8.48791843, lng: 76.92285741, zone_type: 'general', status: 'free' },
+            { slot_id: 110, slot_name: 'C-5', lat: 8.48794230, lng: 76.92287350, zone_type: 'general', status: 'free' },
+            { slot_id: 111, slot_name: 'C-6', lat: 8.48796086, lng: 76.92290300, zone_type: 'general', status: 'free' },
+            { slot_id: 112, slot_name: 'C-7', lat: 8.48798208, lng: 76.92292445, zone_type: 'general', status: 'free' },
+            { slot_id: 113, slot_name: 'C-8', lat: 8.48800595, lng: 76.92294590, zone_type: 'general', status: 'free' },
+            { slot_id: 114, slot_name: 'C-9', lat: 8.48802186, lng: 76.92296467, zone_type: 'general', status: 'free' },
+            { slot_id: 115, slot_name: 'C-10', lat: 8.48805103, lng: 76.92298880, zone_type: 'general', status: 'occupied' },
+            { slot_id: 116, slot_name: 'C-11', lat: 8.48806960, lng: 76.92300757, zone_type: 'general', status: 'free' },
+            { slot_id: 117, slot_name: 'C-12', lat: 8.48808286, lng: 76.92303170, zone_type: 'general', status: 'occupied' },
+            { slot_id: 118, slot_name: 'C-13', lat: 8.48810142, lng: 76.92305315, zone_type: 'general', status: 'occupied' },
+            { slot_id: 119, slot_name: 'C-14', lat: 8.48812264, lng: 76.92307460, zone_type: 'general', status: 'occupied' },
+            { slot_id: 120, slot_name: 'C-15', lat: 8.48814386, lng: 76.92309069, zone_type: 'general', status: 'free' },
+            { slot_id: 121, slot_name: 'C-16', lat: 8.48816507, lng: 76.92311482, zone_type: 'general', status: 'occupied' },
+            { slot_id: 122, slot_name: 'C-17', lat: 8.48817568, lng: 76.92313895, zone_type: 'general', status: 'occupied' },
+            { slot_id: 123, slot_name: 'C-18', lat: 8.48819690, lng: 76.92316040, zone_type: 'general', status: 'occupied' },
+            { slot_id: 124, slot_name: 'C-19', lat: 8.48777257, lng: 76.92286010, zone_type: 'general', status: 'occupied' },
+            { slot_id: 125, slot_name: 'C-20', lat: 8.48779113, lng: 76.92289495, zone_type: 'general', status: 'free' },
+            { slot_id: 126, slot_name: 'C-21', lat: 8.48780970, lng: 76.92292445, zone_type: 'general', status: 'free' },
+            { slot_id: 127, slot_name: 'C-22', lat: 8.48782561, lng: 76.92295126, zone_type: 'general', status: 'free' },
+            { slot_id: 128, slot_name: 'C-23', lat: 8.48785743, lng: 76.92297271, zone_type: 'general', status: 'free' },
+            { slot_id: 129, slot_name: 'C-24', lat: 8.48787069, lng: 76.92299684, zone_type: 'general', status: 'occupied' },
+            { slot_id: 130, slot_name: 'C-25', lat: 8.48788926, lng: 76.92301829, zone_type: 'general', status: 'occupied' },
+            { slot_id: 131, slot_name: 'C-26', lat: 8.48792108, lng: 76.92303438, zone_type: 'general', status: 'free' },
+            { slot_id: 132, slot_name: 'C-27', lat: 8.48793169, lng: 76.92305583, zone_type: 'general', status: 'free' },
+            { slot_id: 133, slot_name: 'C-28', lat: 8.48794760, lng: 76.92307728, zone_type: 'general', status: 'free' },
+            { slot_id: 134, slot_name: 'C-29', lat: 8.48797412, lng: 76.92309605, zone_type: 'general', status: 'occupied' },
+            { slot_id: 135, slot_name: 'C-30', lat: 8.48799004, lng: 76.92311750, zone_type: 'general', status: 'free' },
+            { slot_id: 136, slot_name: 'C-31', lat: 8.48801656, lng: 76.92313627, zone_type: 'general', status: 'free' },
+            { slot_id: 137, slot_name: 'C-32', lat: 8.48804043, lng: 76.92316040, zone_type: 'general', status: 'occupied' },
+            { slot_id: 138, slot_name: 'C-33', lat: 8.48804043, lng: 76.92318989, zone_type: 'general', status: 'free' },
+            { slot_id: 139, slot_name: 'C-34', lat: 8.48806695, lng: 76.92320330, zone_type: 'general', status: 'occupied' },
+            { slot_id: 140, slot_name: 'C-35', lat: 8.48808551, lng: 76.92323279, zone_type: 'general', status: 'occupied' },
+            { slot_id: 141, slot_name: 'C-36', lat: 8.48810673, lng: 76.92325424, zone_type: 'general', status: 'free' },
+            { slot_id: 142, slot_name: 'D-1', lat: 8.48768505, lng: 76.92292445, zone_type: 'general', status: 'free' },
+            { slot_id: 143, slot_name: 'D-2', lat: 8.48771157, lng: 76.92294322, zone_type: 'general', status: 'free' },
+            { slot_id: 144, slot_name: 'D-3', lat: 8.48773279, lng: 76.92296467, zone_type: 'general', status: 'occupied' },
+            { slot_id: 145, slot_name: 'D-4', lat: 8.48775135, lng: 76.92298343, zone_type: 'general', status: 'occupied' },
+            { slot_id: 146, slot_name: 'D-5', lat: 8.48777257, lng: 76.92300220, zone_type: 'general', status: 'free' },
+            { slot_id: 147, slot_name: 'D-6', lat: 8.48778583, lng: 76.92302365, zone_type: 'general', status: 'occupied' },
+            { slot_id: 148, slot_name: 'D-7', lat: 8.48780970, lng: 76.92304779, zone_type: 'general', status: 'free' },
+            { slot_id: 149, slot_name: 'D-8', lat: 8.48783356, lng: 76.92306119, zone_type: 'general', status: 'free' },
+            { slot_id: 150, slot_name: 'D-9', lat: 8.48784152, lng: 76.92308264, zone_type: 'general', status: 'occupied' },
+            { slot_id: 151, slot_name: 'D-10', lat: 8.48786539, lng: 76.92310409, zone_type: 'general', status: 'free' },
+            { slot_id: 152, slot_name: 'D-11', lat: 8.48788661, lng: 76.92312286, zone_type: 'general', status: 'free' },
+            { slot_id: 153, slot_name: 'D-12', lat: 8.48790517, lng: 76.92315504, zone_type: 'general', status: 'free' },
+            { slot_id: 154, slot_name: 'D-13', lat: 8.48793699, lng: 76.92317917, zone_type: 'general', status: 'free' },
+            { slot_id: 155, slot_name: 'D-14', lat: 8.48795291, lng: 76.92320598, zone_type: 'general', status: 'occupied' },
+            { slot_id: 156, slot_name: 'D-15', lat: 8.48799004, lng: 76.92322475, zone_type: 'general', status: 'free' },
+            { slot_id: 157, slot_name: 'D-16', lat: 8.48800595, lng: 76.92325156, zone_type: 'general', status: 'free' },
+            { slot_id: 158, slot_name: 'D-17', lat: 8.48802716, lng: 76.92327301, zone_type: 'general', status: 'occupied' },
+            { slot_id: 159, slot_name: 'D-18', lat: 8.48805634, lng: 76.92328642, zone_type: 'general', status: 'occupied' },
+            { slot_id: 160, slot_name: 'D-19', lat: 8.48763731, lng: 76.92299148, zone_type: 'general', status: 'free' },
+            { slot_id: 161, slot_name: 'D-20', lat: 8.48766648, lng: 76.92300757, zone_type: 'general', status: 'free' },
+            { slot_id: 162, slot_name: 'D-21', lat: 8.48768770, lng: 76.92302902, zone_type: 'general', status: 'free' },
+            { slot_id: 163, slot_name: 'D-22', lat: 8.48771422, lng: 76.92305315, zone_type: 'general', status: 'free' },
+            { slot_id: 164, slot_name: 'D-23', lat: 8.48773279, lng: 76.92307728, zone_type: 'general', status: 'free' },
+            { slot_id: 165, slot_name: 'D-24', lat: 8.48774870, lng: 76.92310945, zone_type: 'general', status: 'occupied' },
+            { slot_id: 166, slot_name: 'D-25', lat: 8.48776726, lng: 76.92313627, zone_type: 'general', status: 'free' },
+            { slot_id: 167, slot_name: 'D-26', lat: 8.48780439, lng: 76.92316308, zone_type: 'general', status: 'free' },
+            { slot_id: 168, slot_name: 'D-27', lat: 8.48781500, lng: 76.92318989, zone_type: 'general', status: 'occupied' },
+            { slot_id: 169, slot_name: 'D-28', lat: 8.48783622, lng: 76.92321134, zone_type: 'general', status: 'free' },
+            { slot_id: 170, slot_name: 'D-29', lat: 8.48785478, lng: 76.92323279, zone_type: 'general', status: 'free' },
+            { slot_id: 171, slot_name: 'D-30', lat: 8.48788926, lng: 76.92324888, zone_type: 'general', status: 'free' },
+            { slot_id: 172, slot_name: 'D-31', lat: 8.48789987, lng: 76.92328374, zone_type: 'general', status: 'free' },
+            { slot_id: 173, slot_name: 'D-32', lat: 8.48791578, lng: 76.92330519, zone_type: 'general', status: 'free' },
+            { slot_id: 174, slot_name: 'D-33', lat: 8.48792109, lng: 76.92333468, zone_type: 'general', status: 'free' },
+            { slot_id: 175, slot_name: 'D-34', lat: 8.48793169, lng: 76.92335613, zone_type: 'general', status: 'occupied' },
+            { slot_id: 176, slot_name: 'D-35', lat: 8.48795556, lng: 76.92338295, zone_type: 'general', status: 'free' },
+            { slot_id: 177, slot_name: 'D-36', lat: 8.48799004, lng: 76.92338026, zone_type: 'general', status: 'free' },
+            { slot_id: 178, slot_name: 'E-1', lat: 8.48744106, lng: 76.92321134, zone_type: 'general', status: 'occupied' },
+            { slot_id: 179, slot_name: 'E-2', lat: 8.48744902, lng: 76.92323548, zone_type: 'general', status: 'occupied' },
+            { slot_id: 180, slot_name: 'E-3', lat: 8.48747554, lng: 76.92326229, zone_type: 'general', status: 'free' },
+            { slot_id: 181, slot_name: 'E-4', lat: 8.48750206, lng: 76.92329178, zone_type: 'general', status: 'free' },
+            { slot_id: 182, slot_name: 'E-5', lat: 8.48751797, lng: 76.92331591, zone_type: 'general', status: 'free' },
+            { slot_id: 183, slot_name: 'E-6', lat: 8.48753919, lng: 76.92334541, zone_type: 'general', status: 'free' },
+            { slot_id: 184, slot_name: 'E-7', lat: 8.48756571, lng: 76.92336954, zone_type: 'general', status: 'free' },
+            { slot_id: 185, slot_name: 'E-8', lat: 8.48758427, lng: 76.92338026, zone_type: 'general', status: 'occupied' },
+            { slot_id: 186, slot_name: 'E-9', lat: 8.48759223, lng: 76.92340171, zone_type: 'general', status: 'occupied' },
+            { slot_id: 187, slot_name: 'E-10', lat: 8.48762405, lng: 76.92342316, zone_type: 'general', status: 'occupied' },
+            { slot_id: 188, slot_name: 'E-11', lat: 8.48763466, lng: 76.92344461, zone_type: 'general', status: 'occupied' },
+            { slot_id: 189, slot_name: 'E-12', lat: 8.48764792, lng: 76.92346607, zone_type: 'general', status: 'free' },
+            { slot_id: 190, slot_name: 'E-13', lat: 8.48766914, lng: 76.92348483, zone_type: 'general', status: 'occupied' },
+            { slot_id: 191, slot_name: 'E-14', lat: 8.48770096, lng: 76.92350897, zone_type: 'general', status: 'occupied' },
+            { slot_id: 192, slot_name: 'E-15', lat: 8.48773014, lng: 76.92353042, zone_type: 'general', status: 'free' },
+            { slot_id: 193, slot_name: 'E-16', lat: 8.48776196, lng: 76.92355723, zone_type: 'general', status: 'occupied' },
+            { slot_id: 194, slot_name: 'E-17', lat: 8.48776196, lng: 76.92358136, zone_type: 'general', status: 'occupied' },
+            { slot_id: 195, slot_name: 'E-18', lat: 8.48780174, lng: 76.92359209, zone_type: 'general', status: 'occupied' },
+            { slot_id: 196, slot_name: 'E-19', lat: 8.48736680, lng: 76.92331591, zone_type: 'general', status: 'occupied' },
+            { slot_id: 197, slot_name: 'E-20', lat: 8.48738272, lng: 76.92334005, zone_type: 'general', status: 'free' },
+            { slot_id: 198, slot_name: 'E-21', lat: 8.48740658, lng: 76.92335613, zone_type: 'general', status: 'free' },
+            { slot_id: 199, slot_name: 'E-22', lat: 8.48741189, lng: 76.92338563, zone_type: 'general', status: 'occupied' },
+            { slot_id: 200, slot_name: 'E-23', lat: 8.48743576, lng: 76.92341244, zone_type: 'general', status: 'occupied' },
+            { slot_id: 201, slot_name: 'E-24', lat: 8.48746228, lng: 76.92343389, zone_type: 'general', status: 'free' },
+            { slot_id: 202, slot_name: 'E-25', lat: 8.48747554, lng: 76.92345802, zone_type: 'general', status: 'free' },
+            { slot_id: 203, slot_name: 'E-26', lat: 8.48749675, lng: 76.92347411, zone_type: 'general', status: 'free' },
+            { slot_id: 204, slot_name: 'E-27', lat: 8.48751797, lng: 76.92349020, zone_type: 'general', status: 'occupied' },
+            { slot_id: 205, slot_name: 'E-28', lat: 8.48759753, lng: 76.92356259, zone_type: 'general', status: 'occupied' },
+            { slot_id: 206, slot_name: 'E-29', lat: 8.48762405, lng: 76.92358940, zone_type: 'general', status: 'occupied' },
+            { slot_id: 207, slot_name: 'E-30', lat: 8.48764262, lng: 76.92361085, zone_type: 'general', status: 'free' },
+            { slot_id: 208, slot_name: 'E-31', lat: 8.48765323, lng: 76.92363499, zone_type: 'general', status: 'free' },
+            { slot_id: 209, slot_name: 'E-32', lat: 8.48768240, lng: 76.92365107, zone_type: 'general', status: 'free' },
+            { slot_id: 210, slot_name: 'F-1', lat: 8.48731104, lng: 76.92336137, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 211, slot_name: 'F-2', lat: 8.48733226, lng: 76.92339086, zone_type: 'logistics', status: 'free' },
+            { slot_id: 212, slot_name: 'F-3', lat: 8.48736409, lng: 76.92341231, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 213, slot_name: 'F-4', lat: 8.48738265, lng: 76.92343912, zone_type: 'logistics', status: 'free' },
+            { slot_id: 214, slot_name: 'F-5', lat: 8.48740652, lng: 76.92346325, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 215, slot_name: 'F-6', lat: 8.48741713, lng: 76.92349275, zone_type: 'logistics', status: 'free' },
+            { slot_id: 216, slot_name: 'F-7', lat: 8.48744895, lng: 76.92350347, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 217, slot_name: 'F-8', lat: 8.48745956, lng: 76.92354101, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 218, slot_name: 'F-9', lat: 8.48747812, lng: 76.92357050, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 219, slot_name: 'F-10', lat: 8.48750199, lng: 76.92357587, zone_type: 'logistics', status: 'free' },
+            { slot_id: 220, slot_name: 'F-11', lat: 8.48751791, lng: 76.92359464, zone_type: 'logistics', status: 'free' },
+            { slot_id: 221, slot_name: 'F-12', lat: 8.48753382, lng: 76.92361609, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 222, slot_name: 'F-13', lat: 8.48755769, lng: 76.92364022, zone_type: 'logistics', status: 'free' },
+            { slot_id: 223, slot_name: 'F-14', lat: 8.48758155, lng: 76.92366167, zone_type: 'logistics', status: 'free' },
+            { slot_id: 224, slot_name: 'F-15', lat: 8.48761073, lng: 76.92368044, zone_type: 'logistics', status: 'free' },
+            { slot_id: 225, slot_name: 'F-16', lat: 8.48763990, lng: 76.92370993, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 226, slot_name: 'F-17', lat: 8.48723148, lng: 76.92346325, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 227, slot_name: 'F-18', lat: 8.48725005, lng: 76.92348470, zone_type: 'logistics', status: 'free' },
+            { slot_id: 228, slot_name: 'F-19', lat: 8.48726861, lng: 76.92350615, zone_type: 'logistics', status: 'free' },
+            { slot_id: 229, slot_name: 'F-20', lat: 8.48727657, lng: 76.92353029, zone_type: 'logistics', status: 'free' },
+            { slot_id: 230, slot_name: 'F-21', lat: 8.48728452, lng: 76.92355442, zone_type: 'logistics', status: 'free' },
+            { slot_id: 231, slot_name: 'F-22', lat: 8.48730839, lng: 76.92357050, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 232, slot_name: 'F-23', lat: 8.48734287, lng: 76.92358659, zone_type: 'logistics', status: 'free' },
+            { slot_id: 233, slot_name: 'F-24', lat: 8.48736409, lng: 76.92361877, zone_type: 'logistics', status: 'free' },
+            { slot_id: 234, slot_name: 'F-25', lat: 8.48738265, lng: 76.92364290, zone_type: 'logistics', status: 'free' },
+            { slot_id: 235, slot_name: 'F-26', lat: 8.48741713, lng: 76.92366703, zone_type: 'logistics', status: 'free' },
+            { slot_id: 236, slot_name: 'F-27', lat: 8.48743834, lng: 76.92369653, zone_type: 'logistics', status: 'free' },
+            { slot_id: 237, slot_name: 'F-28', lat: 8.48745956, lng: 76.92371261, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 238, slot_name: 'F-29', lat: 8.48747812, lng: 76.92373406, zone_type: 'logistics', status: 'free' },
+            { slot_id: 239, slot_name: 'F-30', lat: 8.48752321, lng: 76.92375551, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 240, slot_name: 'F-31', lat: 8.48752056, lng: 76.92378501, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 241, slot_name: 'F-32', lat: 8.48754973, lng: 76.92381450, zone_type: 'logistics', status: 'occupied' },
+            { slot_id: 242, slot_name: 'G-1', lat: 8.48706172, lng: 76.92356251, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 243, slot_name: 'G-2', lat: 8.48707759, lng: 76.92358943, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 244, slot_name: 'G-3', lat: 8.48710411, lng: 76.92360819, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 245, slot_name: 'G-4', lat: 8.48711472, lng: 76.92363233, zone_type: 'bike', status: 'free' },
+            { slot_id: 246, slot_name: 'G-5', lat: 8.48712268, lng: 76.92365646, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 247, slot_name: 'G-6', lat: 8.48714655, lng: 76.92367791, zone_type: 'bike', status: 'free' },
+            { slot_id: 248, slot_name: 'G-7', lat: 8.48716511, lng: 76.92370204, zone_type: 'bike', status: 'free' },
+            { slot_id: 249, slot_name: 'G-8', lat: 8.48718368, lng: 76.92372617, zone_type: 'bike', status: 'free' },
+            { slot_id: 250, slot_name: 'G-9', lat: 8.48721285, lng: 76.92373958, zone_type: 'bike', status: 'free' },
+            { slot_id: 251, slot_name: 'G-10', lat: 8.48722876, lng: 76.92376103, zone_type: 'bike', status: 'free' },
+            { slot_id: 252, slot_name: 'G-11', lat: 8.48724467, lng: 76.92378516, zone_type: 'bike', status: 'free' },
+            { slot_id: 253, slot_name: 'G-12', lat: 8.48726854, lng: 76.92380125, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 254, slot_name: 'G-13', lat: 8.48728180, lng: 76.92382270, zone_type: 'bike', status: 'free' },
+            { slot_id: 255, slot_name: 'G-14', lat: 8.48728711, lng: 76.92384415, zone_type: 'bike', status: 'free' },
+            { slot_id: 256, slot_name: 'G-15', lat: 8.48731363, lng: 76.92386023, zone_type: 'bike', status: 'free' },
+            { slot_id: 257, slot_name: 'G-16', lat: 8.48732424, lng: 76.92388705, zone_type: 'bike', status: 'free' },
+            { slot_id: 258, slot_name: 'G-17', lat: 8.48735076, lng: 76.92389509, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 259, slot_name: 'G-18', lat: 8.48737197, lng: 76.92391386, zone_type: 'bike', status: 'free' },
+            { slot_id: 260, slot_name: 'G-19', lat: 8.48738789, lng: 76.92394335, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 261, slot_name: 'G-20', lat: 8.48700599, lng: 76.92358674, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 262, slot_name: 'G-21', lat: 8.48702986, lng: 76.92360551, zone_type: 'bike', status: 'free' },
+            { slot_id: 263, slot_name: 'G-22', lat: 8.48704048, lng: 76.92362696, zone_type: 'bike', status: 'free' },
+            { slot_id: 264, slot_name: 'G-23', lat: 8.48705639, lng: 76.92364841, zone_type: 'bike', status: 'free' },
+            { slot_id: 265, slot_name: 'G-24', lat: 8.48706700, lng: 76.92367254, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 266, slot_name: 'G-25', lat: 8.48709617, lng: 76.92369667, zone_type: 'bike', status: 'free' },
+            { slot_id: 267, slot_name: 'G-26', lat: 8.48711474, lng: 76.92372349, zone_type: 'bike', status: 'free' },
+            { slot_id: 268, slot_name: 'G-27', lat: 8.48713595, lng: 76.92375298, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 269, slot_name: 'G-28', lat: 8.48715452, lng: 76.92376639, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 270, slot_name: 'G-29', lat: 8.48717839, lng: 76.92379320, zone_type: 'bike', status: 'free' },
+            { slot_id: 271, slot_name: 'G-30', lat: 8.48720491, lng: 76.92382001, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 272, slot_name: 'G-31', lat: 8.48721551, lng: 76.92384951, zone_type: 'bike', status: 'free' },
+            { slot_id: 273, slot_name: 'G-32', lat: 8.48723938, lng: 76.92386828, zone_type: 'bike', status: 'free' },
+            { slot_id: 274, slot_name: 'G-33', lat: 8.48724734, lng: 76.92388973, zone_type: 'bike', status: 'free' },
+            { slot_id: 275, slot_name: 'G-34', lat: 8.48727121, lng: 76.92391386, zone_type: 'bike', status: 'free' },
+            { slot_id: 276, slot_name: 'G-35', lat: 8.48729773, lng: 76.92392995, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 277, slot_name: 'G-36', lat: 8.48731629, lng: 76.92395140, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 278, slot_name: 'G-37', lat: 8.48733751, lng: 76.92397017, zone_type: 'bike', status: 'occupied' },
+            { slot_id: 279, slot_name: 'G-38', lat: 8.48735607, lng: 76.92399162, zone_type: 'bike', status: 'free' }
+        ];
+
+        const GATE = [8.488533, 76.921948];
+        let slotMarkers = {};
+        let slotsData = [];
+        let totalRevenue = 0;
+
+        // ========== MAP INITIALIZATION ==========
+        const map = L.map('map', {
+            center: [8.48830, 76.92270],  // Center of parking area from actual DB
+            zoom: 18,
+            zoomControl: false,
+            attributionControl: false,
+            scrollWheelZoom: true,
+            doubleClickZoom: false
+        });
+
+        // Satellite tile layer with fallback
+        const satelliteLayer = L.tileLayer(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            { errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANS UhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' }
+        ).addTo(map);
+
+        // Fallback to dark base if satellite fails after 5 seconds
+        setTimeout(() => {
+            if (!satelliteLayer._tiles || Object.keys(satelliteLayer._tiles).length === 0) {
+                map.removeLayer(satelliteLayer);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+                    attribution: 'Fallback Mode'
+                }).addTo(map);
+            }
+        }, 5000);
+
+        // Force 0.5x playback for better AR synchronization
+        const vid1 = document.getElementById('vid-entry');
+        const vid2 = document.getElementById('vid-exit');
+        if (vid1) vid1.playbackRate = 0.5;
+        if (vid2) vid2.playbackRate = 0.5;
+
+        // ========== INITIALIZATION ==========
+        function init() {
+            // Load embedded slot data
+            slotsData = DEMO_SLOTS;
+
+            const labeledZones = new Set(); // Track which zones already have labels
+
+            slotsData.forEach(s => {
+                let color = s.status === 'free' ?
+                    (s.zone_type === 'suv' ? '#a855f7' : s.zone_type === 'bike' ? '#eab308' : s.zone_type === 'logistics' ? '#a855f7' : '#22c55e')
+                    : '#dc2626';
+
+                const m = L.circle([parseFloat(s.lat), parseFloat(s.lng)], {
+                    radius: 2.5,
+                    fillColor: color,
+                    fillOpacity: 0.85,
+                    color: color,
+                    weight: 1
+                }).addTo(map);
+
+                // Add zone label only once per zone group
+                const zoneLabel = s.slot_name.split('-')[0]; // Extract "A" from "A-01"
+                if (!labeledZones.has(zoneLabel)) {
+                    m.bindTooltip(zoneLabel, {
+                        permanent: true,
+                        direction: 'center',
+                        className: 'slot-label',
+                        opacity: 1
+                    });
+                    labeledZones.add(zoneLabel);
+                }
+
+                slotMarkers[s.slot_id] = { m, type: s.zone_type };
+            });
+
+            updateHUD();
+            startAutopilot();
+            pushLog('System initialized successfully');
+        }
+
+        function updateHUD() {
+            const free = slotsData.filter(s => s.status === 'free');
+            const occ = slotsData.filter(s => s.status !== 'free');
+            const util = slotsData.length > 0 ? Math.round((occ.length / slotsData.length) * 100) : 0;
+
+            animateCounter('free-count', free.length);
+            animateCounter('occ-count', occ.length);
+
+            document.getElementById('header-revenue').innerText = totalRevenue.toLocaleString();
+            document.getElementById('header-util').innerText = util;
+            document.getElementById('revenue').innerText = totalRevenue.toLocaleString();
+
+            document.getElementById('avail-bike').innerText = free.filter(s => s.zone_type === 'bike').length;
+            document.getElementById('avail-suv').innerText = free.filter(s => s.zone_type === 'suv').length;
+            document.getElementById('avail-gen').innerText = free.filter(s => s.zone_type === 'general').length;
+        }
+
+        function animateCounter(id, target) {
+            const el = document.getElementById(id);
+            const current = parseInt(el.innerText) || 0;
+            if (current === target) return;
+
+            const step = target > current ? 1 : -1;
+            let value = current;
+            const interval = setInterval(() => {
+                value += step;
+                el.innerText = value;
+                if (value === target) clearInterval(interval);
+            }, 30);
+        }
+
+        function pushLog(msg) {
+            const log = document.getElementById('event-log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString([], { hour12: false });
+            entry.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+            log.prepend(entry);
+            if (log.children.length > 20) log.lastChild.remove();
+        }
+
+        function startAutopilot() {
+            const entryOverlay = document.getElementById('entry-overlay');
+            const exitOverlay = document.getElementById('exit-overlay');
+
+            // Entry Loop
+            setInterval(async () => {
+                entryOverlay.innerText = "> SCANNING...";
+                await sleep(700);
+                const types = ['SUV', 'SEDAN', 'BIKE', 'HATCHBACK'];
+                const vehicleType = types[Math.floor(Math.random() * types.length)];
+                entryOverlay.innerText = `> CLASS: ${vehicleType}`;
+                await sleep(700);
+                entryOverlay.innerText = "> ALLOCATING SLOT...";
+
+                const free = slotsData.filter(s => s.status === 'free');
+                if (free.length > 0) {
+                    const target = free[Math.floor(Math.random() * free.length)];
+                    fireDataPacket(target);
+                }
+            }, 3000);
+
+            // Exit Loop
+            setInterval(async () => {
+                exitOverlay.innerText = "> VEHICLE DETECTED...";
+                await sleep(1000);
+                exitOverlay.innerText = "> CALCULATING FEE...";
+                await sleep(1000);
+
+                const occ = slotsData.filter(s => s.status !== 'free');
+                if (occ.length > 0) {
+                    const target = occ[Math.floor(Math.random() * occ.length)];
+                    handleExit(target);
+                }
+            }, 10000);
+        }
+
+        function sleep(ms) {
+            return new Promise(r => setTimeout(r, ms));
+        }
+
+        function fireDataPacket(slot) {
+            const start = L.latLng(GATE);
+            const end = L.latLng(slot.lat, slot.lng);
+            const trail = L.polyline([start, start], {
+                color: '#06b6d4',
+                weight: 1,
+                className: 'data-trail'
+            }).addTo(map);
+
+            const packet = L.circleMarker(start, {
+                radius: 3,
+                fillColor: '#fff',
+                color: '#fff',
+                fillOpacity: 1,
+                className: 'data-packet'
+            }).addTo(map);
+
+            const startTime = performance.now();
+            const duration = 1200;
+
+            const animate = (time) => {
+                const p = Math.min((time - startTime) / duration, 1);
+                const pos = [
+                    start.lat + (end.lat - start.lat) * p,
+                    start.lng + (end.lng - start.lng) * p
+                ];
+                packet.setLatLng(pos);
+                trail.setLatLngs([start, pos]);
+
+                if (p < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    map.removeLayer(trail);
+                    map.removeLayer(packet);
+
+                    // Smooth color transition
+                    slotMarkers[slot.slot_id].m.setStyle({
+                        fillColor: '#dc2626',
+                        color: '#dc2626'
+                    });
+
+                    slot.status = 'occupied';
+                    pushLog(`${slot.slot_name} allocated successfully`);
+                    updateHUD();
+                }
+            };
+            requestAnimationFrame(animate);
+        }
+
+        function handleExit(slot) {
+            const flash = document.getElementById('payment-flash');
+            const exitOverlay = document.getElementById('exit-overlay');
+            const m = slotMarkers[slot.slot_id].m;
+
+            // White flash on map
+            m.setStyle({ fillColor: '#fff', color: '#fff' });
+
+            setTimeout(() => {
+                let color = slot.zone_type === 'suv' ? '#a855f7' :
+                    slot.zone_type === 'bike' ? '#eab308' :
+                        slot.zone_type === 'logistics' ? '#a855f7' : '#22c55e';
+
+                m.setStyle({ fillColor: color, color: color });
+                slot.status = 'free';
+                totalRevenue += 150;
+
+                exitOverlay.innerText = "> PAYMENT:₹150 OK";
+                flash.style.display = 'block';
+                setTimeout(() => flash.style.display = 'none', 1500);
+
+                pushLog(`${slot.slot_name} vacated • Payment ₹150 received`);
+                updateHUD();
+            }, 1000);
+        }
+
+        // Start the application
+        init();
+    </script>
+</body>
+
+</html>
