@@ -626,6 +626,23 @@
             transition: fill 0.3s ease, stroke 0.3s ease !important;
         }
 
+        /* SLOT LABELS */
+        .slot-label {
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 800;
+            color: #fff;
+            text-shadow: 0 0 4px rgba(0, 0, 0, 1), 0 0 8px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+        }
+
+        .slot-label::before {
+            display: none !important;
+        }
+
         /* DATA PACKET */
         .data-trail {
             opacity: 0.3;
@@ -830,6 +847,8 @@
             const data = await res.json();
             slotsData = data.slots;
 
+            const labeledZones = new Set(); // Track which zones already have labels
+
             data.slots.forEach(s => {
                 let color = s.status === 'free' ?
                     (s.zone_type === 'suv' ? '#a855f7' : s.zone_type === 'bike' ? '#eab308' : s.zone_type === 'logistics' ? '#a855f7' : '#22c55e')
@@ -842,6 +861,18 @@
                     color: color,
                     weight: 1
                 }).addTo(map);
+
+                // Add zone label only once per zone group
+                const zoneLabel = s.slot_name.split('-')[0]; // Extract "A" from "A-01"
+                if (!labeledZones.has(zoneLabel)) {
+                    m.bindTooltip(zoneLabel, {
+                        permanent: true,
+                        direction: 'center',
+                        className: 'slot-label',
+                        opacity: 1
+                    });
+                    labeledZones.add(zoneLabel);
+                }
 
                 slotMarkers[s.slot_id] = { m, type: s.zone_type };
             });
