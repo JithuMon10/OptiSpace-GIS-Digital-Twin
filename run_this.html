@@ -13,11 +13,11 @@
         :root {
             /* Muted Color Palette */
             --color-free: #22c55e;
-            --color-occupied: #dc2626;
-            --color-bike: #eab308;
+            --color-occupied: #ef4444;
+            --color-bike: #f59e0b;
             --color-general: #3b82f6;
-            --color-suv: #a855f7;
-            --color-logistics: #a855f7;
+            --color-suv: #8b5cf6;
+            --color-logistics: #8b5cf6;
             --color-active: #06b6d4;
             --color-warning: #f97316;
 
@@ -610,6 +610,20 @@
         .data-packet {
             filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 10px var(--color-active));
         }
+
+        @keyframes pulse-alert {
+            0% {
+                box-shadow: 0 0 0px rgba(239, 68, 68, 0);
+            }
+
+            50% {
+                box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+            }
+
+            100% {
+                box-shadow: 0 0 0px rgba(239, 68, 68, 0);
+            }
+        }
     </style>
 </head>
 
@@ -689,6 +703,19 @@
                 <div class="payment-overlay" id="payment-flash">✔ PAYMENT RECEIVED</div>
                 <video class="cam-rotate" id="vid-exit" src="cctv/VID2.mp4" autoplay muted loop></video>
                 <div class="camera-overlay" id="exit-overlay">> MONITORING...</div>
+            </div>
+
+            <!-- VIOLATION ALERT (JUDGE REQUESTED) -->
+            <div id="violation-panel" class="glass-panel"
+                style="display: none; margin-top: var(--gap-md); padding: var(--gap-md); border: 1px solid #ef4444; background: rgba(239, 68, 68, 0.1); border-radius: 6px; animation: pulse-alert 2s infinite;">
+                <div
+                    style="display: flex; align-items: center; gap: 8px; color: #ef4444; font-weight: 700; font-size: 11px; margin-bottom: 4px;">
+                    <span style="font-size: 14px;">⚠️</span> SYSTEM ALERT: MISPLACEMENT
+                </div>
+                <div id="violation-text"
+                    style="font-size: 11px; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; line-height: 1.4;">
+                    > Vehicle KL-01-BK-9922 parked in SUV Zone (Authorized: BIKE)
+                </div>
             </div>
         </div>
     </div>
@@ -786,7 +813,7 @@
         // ========== EMBEDDED DEMO DATA ==========
         // Data embedded as constant array, loaded once on initialization
         // Coordinates and zones match actual database from setup_files/optispace_db.sql
-                const DEMO_SLOTS = [
+        const DEMO_SLOTS = [
             { slot_id: 3, slot_name: 'A-1', lat: 8.48857363, lng: 76.92205273, zone_type: 'suv', status: 'free' },
             { slot_id: 4, slot_name: 'A-2', lat: 8.48855506, lng: 76.92207954, zone_type: 'suv', status: 'free' },
             { slot_id: 5, slot_name: 'A-3', lat: 8.48853915, lng: 76.92210099, zone_type: 'suv', status: 'free' },
@@ -1103,17 +1130,59 @@
         if (vid1) vid1.playbackRate = 0.5;
         if (vid2) vid2.playbackRate = 0.5;
 
+        // ========== VIOLATION ALERT LOOP (EVERY 10 SECONDS) ==========
+        const violationVehicles = [
+            "KL-01-BK-9922 parked in SUV Zone (Authorized: BIKE)",
+            "TN-22-BY-1102 parked in LOGISTICS (Authorized: SUV)",
+            "KA-51-MM-4432 parked in BIKE ZONE (Authorized: GEN)",
+            "KL-07-CZ-8811 parked in ENTRANCE (Obstructing Flow)"
+        ];
+        let violIdx = 0;
+
+        function triggerViolation() {
+            const panel = document.getElementById('violation-panel');
+            const text = document.getElementById('violation-text');
+
+            text.innerText = "> Vehicle " + violationVehicles[violIdx];
+            violIdx = (violIdx + 1) % violationVehicles.length;
+
+            panel.style.display = 'block';
+
+            // Hide after 5 seconds to keep it dynamic
+            setTimeout(() => {
+                panel.style.opacity = '0';
+                setTimeout(() => {
+                    panel.style.display = 'none';
+                    panel.style.opacity = '1';
+                }, 500);
+            }, 5000);
+        }
+
+        // Start 10-second loop
+        setInterval(triggerViolation, 10000);
+        setTimeout(triggerViolation, 3000); // Trigger first one early
+
         // ========== INITIALIZATION ==========
         function init() {
             // Load embedded slot data
             slotsData = DEMO_SLOTS;
 
+            const rootStyle = getComputedStyle(document.documentElement);
+            const colors = {
+                free: rootStyle.getPropertyValue('--color-free').trim(),
+                occupied: rootStyle.getPropertyValue('--color-occupied').trim(),
+                bike: rootStyle.getPropertyValue('--color-bike').trim(),
+                general: rootStyle.getPropertyValue('--color-general').trim(),
+                suv: rootStyle.getPropertyValue('--color-suv').trim(),
+                logistics: rootStyle.getPropertyValue('--color-logistics').trim()
+            };
+
             const labeledZones = new Set(); // Track which zones already have labels
 
             slotsData.forEach(s => {
                 let color = s.status === 'free' ?
-                    (s.zone_type === 'suv' ? '#a855f7' : s.zone_type === 'bike' ? '#eab308' : s.zone_type === 'logistics' ? '#a855f7' : '#22c55e')
-                    : '#dc2626';
+                    (s.zone_type === 'bike' ? colors.bike : s.zone_type === 'suv' ? colors.suv : s.zone_type === 'logistics' ? colors.logistics : colors.free)
+                    : colors.occupied;
 
                 const m = L.circle([parseFloat(s.lat), parseFloat(s.lng)], {
                     radius: 2.5,
