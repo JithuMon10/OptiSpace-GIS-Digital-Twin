@@ -62,7 +62,6 @@
             position: absolute;
             inset: 0;
             z-index: 1;
-            filter: brightness(0.6) saturate(0.8);
         }
 
         /* GLASS PANELS */
@@ -174,7 +173,7 @@
             top: 72px;
             left: var(--gap-md);
             width: 340px;
-            max-height: calc(100vh - 160px);
+            max-height: calc(100vh - 180px);
             padding: var(--gap-lg);
             z-index: 900;
             overflow-y: auto;
@@ -456,7 +455,7 @@
             top: 72px;
             right: var(--gap-md);
             width: 280px;
-            max-height: calc(100vh - 160px);
+            max-height: calc(100vh - 180px);
             padding: var(--gap-lg);
             z-index: 900;
             display: flex;
@@ -521,29 +520,95 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
-        /* BOTTOM LEGEND */
+        /* BOTTOM FOOTER */
         #legend-bar {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            height: 48px;
-            display: flex;
+            height: auto;
+            padding: var(--gap-sm) var(--gap-xl);
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            gap: var(--gap-xl);
             align-items: center;
-            justify-content: center;
-            gap: var(--gap-lg);
             background: var(--glass);
             backdrop-filter: blur(12px);
             border-top: 1px solid var(--border);
             z-index: 1000;
         }
 
+        .footer-section {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .footer-title {
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .legend-grid {
+            display: flex;
+            gap: var(--gap-lg);
+            justify-content: center;
+            align-items: center;
+        }
+
         .legend-item {
             display: flex;
             align-items: center;
-            gap: var(--gap-sm);
-            font-size: 12px;
+            gap: 6px;
+            font-size: 10px;
             color: var(--text-secondary);
+        }
+
+        .footer-list {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .footer-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+        }
+
+        .footer-item-label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--text-secondary);
+        }
+
+        .footer-item-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .footer-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
+            color: var(--color-free);
+        }
+
+        .footer-status::before {
+            content: '';
+            width: 5px;
+            height: 5px;
+            background: var(--color-free);
+            border-radius: 50%;
+            box-shadow: 0 0 4px var(--color-free);
         }
 
         .legend-color {
@@ -643,53 +708,7 @@
                 <div class="camera-overlay" id="exit-overlay">> MONITORING...</div>
             </div>
         </div>
-
-        <!-- SECTION C: AVAILABILITY -->
-        <div class="panel-section">
-            <div class="section-title">Availability by Type</div>
-            <div class="availability-list">
-                <div class="availability-item">
-                    <div class="availability-label">
-                        <div class="color-bullet" style="background: var(--color-bike)"></div>
-                        Bike Zone
-                    </div>
-                    <div class="availability-count" id="avail-bike">0</div>
-                </div>
-                <div class="availability-item">
-                    <div class="availability-label">
-                        <div class="color-bullet" style="background: var(--color-general)"></div>
-                        General
-                    </div>
-                    <div class="availability-count" id="avail-gen">0</div>
-                </div>
-                <div class="availability-item">
-                    <div class="availability-label">
-                        <div class="color-bullet" style="background: var(--color-suv)"></div>
-                        SUV / Premium
-                    </div>
-                    <div class="availability-count" id="avail-suv">0</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- SECTION D: SYSTEM HEALTH -->
-        <div class="panel-section">
-            <div class="section-title">System Health</div>
-            <div class="health-list">
-                <div class="health-item">
-                    <div class="health-label">Gate Sensors</div>
-                    <div class="health-status">Online</div>
-                </div>
-                <div class="health-item">
-                    <div class="health-label">CCTV Array</div>
-                    <div class="health-status">2 / 2 Active</div>
-                </div>
-                <div class="health-item">
-                    <div class="health-label">AI Detection</div>
-                    <div class="health-status">Running</div>
-                </div>
-            </div>
-        </div>
+    </div>
     </div>
 
     <!-- RIGHT PANEL -->
@@ -704,27 +723,79 @@
         <div class="event-log" id="event-log"></div>
     </div>
 
-    <!-- BOTTOM LEGEND -->
+    <!-- BOTTOM FOOTER -->
     <div id="legend-bar">
-        <div class="legend-item">
-            <div class="legend-color" style="background: var(--color-free)"></div>
-            Free
+        <!-- LEFT: AVAILABILITY -->
+        <div class="footer-section">
+            <div class="footer-title">Availability by Type</div>
+            <div class="footer-list">
+                <div class="footer-item">
+                    <div class="footer-item-label">
+                        <div class="color-bullet" style="background: var(--color-bike)"></div>
+                        Bike Zone
+                    </div>
+                    <div class="footer-item-value" id="avail-bike">0</div>
+                </div>
+                <div class="footer-item">
+                    <div class="footer-item-label">
+                        <div class="color-bullet" style="background: var(--color-general)"></div>
+                        General
+                    </div>
+                    <div class="footer-item-value" id="avail-gen">0</div>
+                </div>
+                <div class="footer-item">
+                    <div class="footer-item-label">
+                        <div class="color-bullet" style="background: var(--color-suv)"></div>
+                        SUV / Premium
+                    </div>
+                    <div class="footer-item-value" id="avail-suv">0</div>
+                </div>
+            </div>
         </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: var(--color-occupied)"></div>
-            Occupied
+
+        <!-- CENTER: LEGEND -->
+        <div class="footer-section">
+            <div class="legend-grid">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--color-free)"></div>
+                    Free
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--color-occupied)"></div>
+                    Occupied
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--color-bike)"></div>
+                    Bike
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--color-general)"></div>
+                    General
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: var(--color-suv)"></div>
+                    SUV
+                </div>
+            </div>
         </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: var(--color-bike)"></div>
-            Bike
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: var(--color-general)"></div>
-            General
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: var(--color-suv)"></div>
-            SUV / Premium
+
+        <!-- RIGHT: SYSTEM HEALTH -->
+        <div class="footer-section" style="align-items: flex-end;">
+            <div class="footer-title" style="text-align: right;">System Health</div>
+            <div class="footer-list">
+                <div class="footer-item">
+                    <div class="footer-item-label">Gate Sensors</div>
+                    <div class="footer-status">Online</div>
+                </div>
+                <div class="footer-item">
+                    <div class="footer-item-label">CCTV Array</div>
+                    <div class="footer-status">2 / 2 Active</div>
+                </div>
+                <div class="footer-item">
+                    <div class="footer-item-label">AI Detection</div>
+                    <div class="footer-status">Running</div>
+                </div>
+            </div>
         </div>
     </div>
 
