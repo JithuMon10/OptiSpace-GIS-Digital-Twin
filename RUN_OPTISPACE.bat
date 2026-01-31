@@ -1,125 +1,127 @@
 @echo off
 setlocal enabledelayedexpansion
 color 0A
-title OptiSpace - Smart Parking System Launcher
+title OptiSpace - Automated Setup & Launch
 
 :: ============================================================================
 :: OPTISPACE ONE-CLICK LAUNCHER
-:: Automated setup and launch script for hackathon judges
+:: Automated setup script for hackathon judges
 :: ============================================================================
 
 echo.
 echo ╔════════════════════════════════════════════════════════════════╗
-echo ║                  OPTISPACE COMMAND CENTER                      ║
-echo ║              Smart Parking Management System                   ║
+echo ║                  OPTISPACE SMART PARKING SYSTEM                ║
+echo ║                    Automated Setup Wizard                      ║
 echo ╚════════════════════════════════════════════════════════════════╝
 echo.
 
 :: ============================================================================
-:: STEP 1: PREREQUISITE CHECK
+:: STEP 1: CHECK FOR XAMPP/PHP
 :: ============================================================================
-echo [1/4] Checking PHP Environment...
+echo [1/3] Checking for XAMPP/PHP...
 
 php --version >nul 2>&1
 if errorlevel 1 (
     color 0C
     echo.
-    echo ╔════════════════════════════════════════════════════════════════╗
-    echo ║  ERROR: PHP ENVIRONMENT NOT FOUND                              ║
-    echo ╚════════════════════════════════════════════════════════════════╝
+    echo  ═══════════════════════════════════════════════════════════════
+    echo   ERROR: XAMPP is missing.
+    echo  ═══════════════════════════════════════════════════════════════
     echo.
-    echo  PHP is not installed or not in system PATH.
-    echo  Launching DEMO VIDEO instead...
+    echo  PHP is not installed or not in your system PATH.
+    echo  Opening download page...
     echo.
-    timeout /t 2 /nobreak >nul
     
-    if exist "DEMO_VIDEO.mp4" (
-        start "" "DEMO_VIDEO.mp4"
-    ) else (
-        echo  ERROR: DEMO_VIDEO.mp4 not found!
-        pause
-    )
+    start https://www.apachefriends.org/download.html
+    
+    echo  Please install XAMPP and restart this script.
+    echo.
+    pause
     exit /b 1
 )
 
-echo  [OK] PHP Version: 
+echo  [OK] PHP Found
 php --version | findstr /R "PHP"
 echo.
 
 :: ============================================================================
-:: STEP 2: DATABASE AUTOMATION
+:: STEP 2: DATABASE SETUP
 :: ============================================================================
-echo [2/4] Configuring Database...
+echo [2/3] Setting up Database...
 
 :: Check if MySQL is accessible
 mysql --version >nul 2>&1
 if errorlevel 1 (
-    echo  [WARNING] MySQL not found in PATH. Skipping database setup.
-    echo  Please ensure XAMPP MySQL is running manually.
+    color 0E
+    echo  [WARNING] MySQL not found in PATH.
+    echo  Please ensure XAMPP MySQL service is running.
+    echo  Starting server without database import...
     echo.
     goto :skip_db
 )
 
 :: Create database
-mysql -u root -e "CREATE DATABASE IF NOT EXISTS optispace_db;" 2>nul
+echo  Creating database 'optispace'...
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS optispace;" 2>nul
 if errorlevel 1 (
-    echo  [WARNING] Could not create database. It may already exist.
+    echo  [WARNING] Could not create database.
 ) else (
-    echo  [OK] Database 'optispace_db' created/verified
+    echo  [OK] Database created/verified
 )
 
 :: Import SQL file
-if exist "Database_SQL\optispace_db.sql" (
-    mysql -u root optispace_db < "Database_SQL\optispace_db.sql" 2>nul
+if exist "setup_files\optispace_db.sql" (
+    echo  Importing schema from setup_files\optispace_db.sql...
+    mysql -u root optispace < "setup_files\optispace_db.sql" 2>nul
     if errorlevel 1 (
-        echo  [WARNING] Database import failed. Using existing data.
+        color 0E
+        echo  [ERROR] Database import failed.
+        echo  Please check if MySQL service is running.
+        pause
+        goto :skip_db
     ) else (
-        echo  [OK] Database schema imported successfully
+        echo  [OK] Database Imported
     )
 ) else (
-    if exist "database.sql" (
-        mysql -u root optispace_db < "database.sql" 2>nul
-        echo  [OK] Database configured from database.sql
-    ) else (
-        echo  [WARNING] SQL file not found. Using existing database.
-    )
+    color 0E
+    echo  [ERROR] SQL file not found at: setup_files\optispace_db.sql
+    echo  Please ensure the file exists and try again.
+    pause
+    goto :skip_db
 )
 
-echo  [OK] Database Configuration Complete
 echo.
 
 :skip_db
 
 :: ============================================================================
-:: STEP 3: LAUNCH WEB SERVER
+:: STEP 3: LAUNCH SERVER
 :: ============================================================================
-echo [3/4] Starting PHP Built-in Web Server...
-echo  Server Address: http://localhost:8000
-echo  Document Root: %CD%
+echo [3/3] Starting Web Server...
+echo.
+echo  ═══════════════════════════════════════════════════════════════
+echo   Server Address: http://localhost:8000
+echo   Document Root:  %CD%
+echo  ═══════════════════════════════════════════════════════════════
 echo.
 
-:: ============================================================================
-:: STEP 4: AUTO-OPEN BROWSER
-:: ============================================================================
-echo [4/4] Launching Dashboard...
+:: Open browser
+echo  Opening dashboard in browser...
 timeout /t 2 /nobreak >nul
 start http://localhost:8000
 
 echo.
 echo ╔════════════════════════════════════════════════════════════════╗
-echo ║                  SYSTEM STATUS: ONLINE                         ║
+echo ║               OPTISPACE SYSTEM: ONLINE ✓                       ║
 echo ╚════════════════════════════════════════════════════════════════╝
 echo.
-echo  Dashboard: http://localhost:8000
 echo  Press CTRL+C to stop the server
 echo.
-echo ════════════════════════════════════════════════════════════════
-echo.
 
-:: Start PHP server (this will keep the window open)
+:: Start PHP built-in server
 php -S localhost:8000
 
-:: If server stops, show message
+:: If server stops
 echo.
-echo  Server stopped. Press any key to exit...
-pause >nul
+echo  Server stopped.
+pause
